@@ -18,17 +18,17 @@
     </script>
     <link rel="stylesheet" href="styles.css" />
   </head>
-  <body class="min-h-screen bg-[#fff4df] font-display text-slate-900">
-    <main class="mx-auto flex min-h-screen w-full max-w-[560px] flex-col px-4 pb-5 pt-3 sm:max-w-[760px]">
-      <header class="relative flex items-start justify-between gap-3 py-2">
+  <body class="bg-[#fff4df] font-display text-slate-900">
+    <main class="app-shell mx-auto flex w-full max-w-[560px] flex-col px-3 sm:max-w-[760px]">
+      <header class="app-header relative flex items-start justify-between gap-2">
         <div class="min-w-0">
-          <p class="text-xs font-black uppercase tracking-wide text-pink-600">English For Kids</p>
-          <h1 class="truncate text-xl font-black sm:text-2xl">Flashcards phát âm</h1>
+          <p class="brand-label font-black uppercase tracking-wide text-pink-600">English For Kids</p>
+          <h1 class="title-text truncate font-black">Flashcards phát âm</h1>
         </div>
-        <div class="relative flex shrink-0 items-center gap-2">
-          <span id="roleBadge" class="rounded-full bg-white px-3 py-2 text-xs font-black shadow-md">Guest</span>
-          <button id="adminToggleBtn" class="hidden rounded-full bg-pink-500 px-3 py-2 text-xs font-black text-white shadow-md active:scale-95">Quản trị</button>
-          <button id="authToggleBtn" class="rounded-full bg-slate-900 px-3 py-2 text-xs font-black text-white shadow-md active:scale-95">Đăng nhập</button>
+        <div class="relative flex shrink-0 items-center gap-1.5">
+          <span id="roleBadge" class="top-pill rounded-full bg-white font-black shadow-md">Guest</span>
+          <button id="adminToggleBtn" class="top-pill hidden rounded-full bg-pink-500 font-black text-white shadow-md active:scale-95">Quản trị</button>
+          <button id="authToggleBtn" class="top-pill rounded-full bg-slate-900 font-black text-white shadow-md active:scale-95">Đăng nhập</button>
 
           <section id="authPanel" class="absolute right-0 top-12 z-30 hidden w-[min(92vw,360px)] rounded-[22px] border-4 border-white bg-white/95 p-4 text-left shadow-2xl shadow-orange-200 backdrop-blur">
             <div id="signedOutAuth" class="space-y-3">
@@ -52,21 +52,21 @@
         </div>
       </header>
 
-      <section id="accessNote" class="mb-3 rounded-2xl bg-yellow-100 px-4 py-3 text-center text-sm font-black text-yellow-900"></section>
+      <section id="accessNote" class="access-note rounded-2xl bg-yellow-100 px-3 text-center font-black text-yellow-900"></section>
 
-      <section class="grid gap-3 sm:grid-cols-[1fr_180px] sm:items-end">
+      <section class="controls-grid grid gap-2 sm:grid-cols-[1fr_180px] sm:items-end">
         <label class="block">
-          <span class="text-xs font-black uppercase text-slate-500">Tìm từ</span>
-          <input id="searchInput" class="mt-1 w-full rounded-2xl border-4 border-white bg-white px-4 py-3 text-base font-extrabold shadow-md outline-none focus:border-sky-300" placeholder="dog, apple, happy..." />
+          <span class="control-label font-black uppercase text-slate-500">Tìm từ</span>
+          <input id="searchInput" class="control-input mt-1 w-full rounded-2xl border-white bg-white px-3 font-extrabold shadow-md outline-none focus:border-sky-300" placeholder="dog, apple, happy..." />
         </label>
         <label class="block">
-          <span class="text-xs font-black uppercase text-slate-500">Chủ đề</span>
-          <select id="categorySelect" class="mt-1 w-full rounded-2xl border-4 border-white bg-white px-4 py-3 text-base font-extrabold shadow-md outline-none focus:border-sky-300"></select>
+          <span class="control-label font-black uppercase text-slate-500">Chủ đề</span>
+          <select id="categorySelect" class="control-input mt-1 w-full rounded-2xl border-white bg-white px-3 font-extrabold shadow-md outline-none focus:border-sky-300"></select>
         </label>
       </section>
 
-      <section class="relative mt-4 flex flex-1 items-center justify-center">
-        <article id="flashCard" class="flash-card relative flex min-h-[58vh] w-full touch-pan-y select-none flex-col overflow-hidden rounded-[34px] border-4 border-white bg-white p-4 shadow-2xl shadow-orange-100 sm:min-h-[620px] sm:p-6">
+      <section class="card-stage relative flex flex-1 items-center justify-center">
+        <article id="flashCard" class="flash-card relative flex w-full touch-pan-y select-none flex-col overflow-hidden rounded-[30px] border-white bg-white shadow-2xl shadow-orange-100">
           <div class="absolute -right-16 -top-20 h-44 w-44 rounded-full bg-yellow-200"></div>
           <div class="absolute -bottom-20 -left-16 h-52 w-52 rounded-full bg-sky-200"></div>
 
@@ -77,17 +77,17 @@
             </div>
           </div>
 
-          <button id="speakArea" class="relative mt-4 flex flex-1 flex-col items-center justify-center rounded-[28px] bg-[#f7fbff] p-4 active:scale-[0.99]" aria-label="Bấm để nghe phát âm">
-            <div id="imageFrame" class="grid aspect-square w-full max-w-[320px] place-items-center overflow-hidden rounded-[28px] border-4 border-white text-8xl shadow-xl sm:max-w-[380px]"></div>
-            <h2 id="wordText" class="mt-5 max-w-full break-words text-center text-5xl font-black leading-none sm:text-7xl">hello</h2>
-            <p id="wordMeaning" class="mt-2 text-center text-base font-extrabold text-slate-500 sm:text-lg">từ thông dụng</p>
-            <p id="speechHint" class="mt-4 rounded-full bg-emerald-100 px-4 py-2 text-sm font-black text-emerald-800">Bấm thẻ để nghe</p>
+          <button id="speakArea" class="speak-area relative flex flex-1 flex-col items-center justify-center rounded-[24px] bg-[#f7fbff] active:scale-[0.99]" aria-label="Bấm để nghe phát âm">
+            <div id="imageFrame" class="image-frame grid aspect-square w-full place-items-center overflow-hidden rounded-[24px] border-white text-8xl shadow-xl"></div>
+            <h2 id="wordText" class="word-title max-w-full break-words text-center font-black leading-none">hello</h2>
+            <p id="wordMeaning" class="meaning-text text-center font-extrabold text-slate-500">từ thông dụng</p>
+            <p id="speechHint" class="speech-hint rounded-full bg-emerald-100 font-black text-emerald-800">Bấm thẻ để nghe</p>
           </button>
 
-          <div class="relative mt-4 grid grid-cols-3 gap-2">
-            <button id="prevBtn" class="rounded-2xl bg-sky-500 py-3 text-sm font-black text-white shadow-lg shadow-sky-200 active:scale-95">Trước</button>
-            <button id="nextBtn" class="rounded-2xl bg-lime-500 py-3 text-sm font-black text-white shadow-lg shadow-lime-200 active:scale-95">Tiếp</button>
-            <button id="randomBtn" class="rounded-2xl bg-violet-500 py-3 text-sm font-black text-white shadow-lg shadow-violet-200 active:scale-95">Đổi</button>
+          <div class="nav-buttons relative grid grid-cols-3 gap-2">
+            <button id="prevBtn" class="rounded-2xl bg-sky-500 text-sm font-black text-white shadow-lg shadow-sky-200 active:scale-95">Trước</button>
+            <button id="nextBtn" class="rounded-2xl bg-lime-500 text-sm font-black text-white shadow-lg shadow-lime-200 active:scale-95">Tiếp</button>
+            <button id="randomBtn" class="rounded-2xl bg-violet-500 text-sm font-black text-white shadow-lg shadow-violet-200 active:scale-95">Đổi</button>
           </div>
         </article>
       </section>

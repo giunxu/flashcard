@@ -6,7 +6,12 @@
 
 html,
 body {
+  height: 100%;
   overscroll-behavior-y: none;
+}
+
+body {
+  overflow: hidden;
 }
 
 button,
@@ -15,8 +20,112 @@ select {
   font: inherit;
 }
 
+.app-shell {
+  height: 100dvh;
+  overflow: hidden;
+  padding-top: max(8px, env(safe-area-inset-top));
+  padding-bottom: max(8px, env(safe-area-inset-bottom));
+}
+
+.app-header {
+  flex: 0 0 auto;
+  padding-bottom: 6px;
+}
+
+.brand-label {
+  font-size: 0.68rem;
+}
+
+.title-text {
+  font-size: clamp(1.05rem, 4.5vw, 1.45rem);
+  line-height: 1.05;
+}
+
+.top-pill {
+  padding: 0.5rem 0.7rem;
+  font-size: 0.72rem;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.access-note {
+  flex: 0 0 auto;
+  margin-bottom: 8px;
+  padding-top: 8px;
+  padding-bottom: 8px;
+  font-size: 0.82rem;
+  line-height: 1.2;
+}
+
+.access-note.hidden {
+  display: none;
+}
+
+.controls-grid {
+  flex: 0 0 auto;
+}
+
+.control-label {
+  font-size: 0.68rem;
+}
+
+.control-input {
+  height: 44px;
+  border-width: 3px;
+  font-size: 0.95rem;
+}
+
+.card-stage {
+  min-height: 0;
+  margin-top: 10px;
+}
+
 .flash-card {
+  height: 100%;
+  min-height: 0;
+  border-width: 4px;
+  padding: 12px;
   transition: transform 160ms ease, opacity 160ms ease;
+}
+
+.speak-area {
+  min-height: 0;
+  margin-top: 10px;
+  padding: 10px;
+}
+
+.image-frame {
+  max-width: min(62vw, 320px);
+  max-height: min(36dvh, 320px);
+  border-width: 4px;
+}
+
+.word-title {
+  margin-top: 12px;
+  font-size: clamp(2.25rem, 12vw, 4.4rem);
+}
+
+.meaning-text {
+  margin-top: 6px;
+  font-size: clamp(0.88rem, 3.6vw, 1.1rem);
+  line-height: 1.15;
+}
+
+.speech-hint {
+  margin-top: 10px;
+  padding: 0.45rem 0.8rem;
+  font-size: 0.82rem;
+  line-height: 1.1;
+}
+
+.nav-buttons {
+  flex: 0 0 auto;
+  margin-top: 10px;
+}
+
+.nav-buttons button {
+  min-height: 42px;
+  padding: 0.55rem 0.4rem;
 }
 
 .flash-card.swipe-left {
@@ -37,6 +146,110 @@ select {
 
 @media (max-width: 390px) {
   #wordText {
-    font-size: 2.7rem;
+    font-size: 2.45rem;
+  }
+}
+
+@media (max-height: 740px) {
+  .app-shell {
+    padding-top: max(5px, env(safe-area-inset-top));
+    padding-bottom: max(5px, env(safe-area-inset-bottom));
+  }
+
+  .brand-label {
+    font-size: 0.6rem;
+  }
+
+  .title-text {
+    font-size: clamp(0.95rem, 4vw, 1.2rem);
+  }
+
+  .top-pill {
+    padding: 0.42rem 0.58rem;
+    font-size: 0.66rem;
+  }
+
+  .access-note {
+    margin-bottom: 6px;
+    padding-top: 6px;
+    padding-bottom: 6px;
+    font-size: 0.72rem;
+  }
+
+  .control-label {
+    display: none;
+  }
+
+  .control-input {
+    height: 38px;
+    font-size: 0.86rem;
+  }
+
+  .card-stage {
+    margin-top: 8px;
+  }
+
+  .flash-card {
+    border-width: 3px;
+    padding: 9px;
+    border-radius: 24px;
+  }
+
+  .speak-area {
+    margin-top: 7px;
+    padding: 8px;
+    border-radius: 20px;
+  }
+
+  .image-frame {
+    max-width: min(56vw, 245px);
+    max-height: min(31dvh, 245px);
+    border-width: 3px;
+    border-radius: 20px;
+  }
+
+  .word-title {
+    margin-top: 8px;
+    font-size: clamp(1.95rem, 10vw, 3.1rem);
+  }
+
+  .meaning-text {
+    margin-top: 4px;
+    font-size: 0.82rem;
+  }
+
+  .speech-hint {
+    margin-top: 7px;
+    padding: 0.36rem 0.65rem;
+    font-size: 0.72rem;
+  }
+
+  .nav-buttons {
+    margin-top: 7px;
+  }
+
+  .nav-buttons button {
+    min-height: 36px;
+    padding: 0.38rem 0.3rem;
+    font-size: 0.78rem;
+  }
+}
+
+@media (max-height: 620px) {
+  .access-note {
+    display: none;
+  }
+
+  .controls-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .image-frame {
+    max-width: min(50vw, 190px);
+    max-height: min(27dvh, 190px);
+  }
+
+  .speech-hint {
+    display: none;
   }
 }
