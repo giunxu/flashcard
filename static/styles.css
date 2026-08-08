@@ -1,0 +1,42 @@
+@import url("https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&display=swap");
+
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+html,
+body {
+  overscroll-behavior-y: none;
+}
+
+button,
+input,
+select {
+  font: inherit;
+}
+
+.flash-card {
+  transition: transform 160ms ease, opacity 160ms ease;
+}
+
+.flash-card.swipe-left {
+  opacity: 0;
+  transform: translateX(-90px) rotate(-5deg);
+}
+
+.flash-card.swipe-right {
+  opacity: 0;
+  transform: translateX(90px) rotate(5deg);
+}
+
+.word-picture {
+  background:
+    radial-gradient(circle at 24% 18%, rgba(255, 255, 255, 0.92), transparent 22%),
+    linear-gradient(135deg, var(--card-color, #ffd166), #ffffff 120%);
+}
+
+@media (max-width: 390px) {
+  #wordText {
+    font-size: 2.7rem;
+  }
+}

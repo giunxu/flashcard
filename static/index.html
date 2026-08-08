@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>English For Kids</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            fontFamily: {
+              display: ["Nunito", "ui-rounded", "system-ui", "sans-serif"],
+            },
+          },
+        },
+      };
+    </script>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body class="min-h-screen bg-[#fff4df] font-display text-slate-900">
+    <main class="mx-auto flex min-h-screen w-full max-w-[560px] flex-col px-4 pb-5 pt-3 sm:max-w-[720px]">
+      <header class="flex items-center justify-between gap-3 py-2">
+        <div class="min-w-0">
+          <p class="text-xs font-black uppercase tracking-wide text-pink-600">English For Kids</p>
+          <h1 class="truncate text-xl font-black sm:text-2xl">Flashcards phát âm</h1>
+        </div>
+        <div class="rounded-full bg-white px-3 py-2 text-sm font-black shadow-md">
+          <span id="positionText">1</span>/<span id="totalWords">0</span>
+        </div>
+      </header>
+
+      <section class="grid gap-3 sm:grid-cols-[1fr_180px] sm:items-end">
+        <label class="block">
+          <span class="text-xs font-black uppercase text-slate-500">Tìm từ</span>
+          <input id="searchInput" class="mt-1 w-full rounded-2xl border-4 border-white bg-white px-4 py-3 text-base font-extrabold shadow-md outline-none focus:border-sky-300" placeholder="dog, apple, happy..." />
+        </label>
+        <label class="block">
+          <span class="text-xs font-black uppercase text-slate-500">Chủ đề</span>
+          <select id="categorySelect" class="mt-1 w-full rounded-2xl border-4 border-white bg-white px-4 py-3 text-base font-extrabold shadow-md outline-none focus:border-sky-300"></select>
+        </label>
+      </section>
+
+      <section class="relative mt-4 flex flex-1 items-center justify-center">
+        <article id="flashCard" class="flash-card relative flex min-h-[58vh] w-full touch-pan-y select-none flex-col overflow-hidden rounded-[34px] border-4 border-white bg-white p-4 shadow-2xl shadow-orange-100 sm:min-h-[620px] sm:p-6">
+          <div class="absolute -right-16 -top-20 h-44 w-44 rounded-full bg-yellow-200"></div>
+          <div class="absolute -bottom-20 -left-16 h-52 w-52 rounded-full bg-sky-200"></div>
+
+          <div class="relative flex items-center justify-between gap-2">
+            <span id="wordCategory" class="rounded-full bg-pink-100 px-3 py-2 text-xs font-black uppercase text-pink-700">Common Words</span>
+            <button id="randomBtn" class="rounded-full bg-violet-500 px-4 py-2 text-sm font-black text-white shadow-lg shadow-violet-200 active:scale-95">Ngẫu nhiên</button>
+          </div>
+
+          <button id="speakArea" class="relative mt-4 flex flex-1 flex-col items-center justify-center rounded-[28px] bg-[#f7fbff] p-4 active:scale-[0.99]" aria-label="Bấm để nghe phát âm">
+            <div id="imageFrame" class="grid aspect-square w-full max-w-[320px] place-items-center overflow-hidden rounded-[28px] border-4 border-white text-8xl shadow-xl sm:max-w-[380px]"></div>
+            <h2 id="wordText" class="mt-5 max-w-full break-words text-center text-5xl font-black leading-none sm:text-7xl">hello</h2>
+            <p id="wordMeaning" class="mt-2 text-center text-base font-extrabold text-slate-500 sm:text-lg">từ thông dụng</p>
+            <p id="speechHint" class="mt-4 rounded-full bg-emerald-100 px-4 py-2 text-sm font-black text-emerald-800">Bấm thẻ để nghe</p>
+          </button>
+
+          <div class="relative mt-4 grid grid-cols-3 gap-2">
+            <button id="prevBtn" class="rounded-2xl bg-sky-500 py-3 text-sm font-black text-white shadow-lg shadow-sky-200 active:scale-95">← Trước</button>
+            <button id="repeatBtn" class="rounded-2xl bg-pink-500 py-3 text-sm font-black text-white shadow-lg shadow-pink-200 active:scale-95">Nghe lại</button>
+            <button id="nextBtn" class="rounded-2xl bg-lime-500 py-3 text-sm font-black text-white shadow-lg shadow-lime-200 active:scale-95">Tiếp →</button>
+          </div>
+        </article>
+      </section>
+
+      <section class="mt-4 rounded-[26px] border-4 border-white bg-white/90 p-4 shadow-xl shadow-orange-100">
+        <button id="toggleImageTools" class="flex w-full items-center justify-between text-left font-black">
+          <span>Nhập hình cho từ này</span>
+          <span id="imageToolsIcon">+</span>
+        </button>
+        <div id="imageTools" class="mt-4 hidden space-y-3">
+          <input id="imageUrlInput" class="w-full rounded-2xl border-4 border-yellow-100 px-4 py-3 font-bold outline-none focus:border-sky-300" placeholder="Dán link ảnh https://..." />
+          <div class="grid grid-cols-2 gap-2">
+            <button id="saveImageUrlBtn" class="rounded-2xl bg-emerald-500 px-3 py-3 text-sm font-black text-white active:scale-95">Lưu link ảnh</button>
+            <a id="googleImageLink" class="rounded-2xl bg-blue-500 px-3 py-3 text-center text-sm font-black text-white active:scale-95" target="_blank" rel="noreferrer">Tìm Google</a>
+          </div>
+          <label class="block rounded-2xl border-4 border-dashed border-pink-200 bg-pink-50 p-3 text-center text-sm font-black text-pink-700">
+            Upload ảnh từ máy
+            <input id="imageFileInput" class="hidden" type="file" accept="image/*" />
+          </label>
+          <button id="clearImageBtn" class="w-full rounded-2xl bg-slate-200 px-3 py-3 text-sm font-black text-slate-700 active:scale-95">Xóa hình riêng</button>
+          <p id="imageStatus" class="text-center text-sm font-extrabold text-slate-500"></p>
+        </div>
+      </section>
+    </main>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="supabase-config.js"></script>
+    <script src="app.js"></script>
+  </body>
+</html>
