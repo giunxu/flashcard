@@ -590,16 +590,22 @@ function fillAdminFields(item) {
   renderAdminSelectedPreview();
 }
 
-function selectWordByIndex(index, shouldSpeak = true) {
+function selectWordByIndex(index, shouldSpeak = true, countView = shouldSpeak) {
   if (!state.filtered.length) return;
 
-  state.currentIndex = (index + state.filtered.length) % state.filtered.length;
-  const item = currentWord();
-  if (!recordDailyView(item)) {
+  const nextIndex = (index + state.filtered.length) % state.filtered.length;
+  const item = state.filtered[nextIndex];
+  if (countView && !recordDailyView(item)) {
     renderDailyQuotaLock();
     return;
   }
+  if (!countView && isDailyQuotaLocked()) {
+    renderDailyQuotaLock();
+    return;
+  }
+  state.quotaLocked = false;
 
+  state.currentIndex = nextIndex;
   el.wordText.textContent = item.word;
   el.wordMeaning.textContent = item.meaning;
   el.wordCategory.textContent = item.category;
@@ -734,11 +740,11 @@ function updateCropView(kind) {
   if (!crop) return;
   const frameSize = parts.frame.getBoundingClientRect().width || 260;
   const baseScale = Math.min(frameSize / crop.image.naturalWidth, frameSize / crop.image.naturalHeight);
-  const displayWidth = crop.image.naturalWidth * baseScale * crop.zoom;
-  const displayHeight = crop.image.naturalHeight * baseScale * crop.zoom;
+  const displayWidth = crop.image.naturalWidth * baseScale;
+  const displayHeight = crop.image.naturalHeight * baseScale;
   parts.image.style.width = `${displayWidth}px`;
   parts.image.style.height = `${displayHeight}px`;
-  parts.image.style.transform = `translate(calc(-50% + ${crop.offsetX}px), calc(-50% + ${crop.offsetY}px))`;
+  parts.image.style.transform = `translate(calc(-50% + ${crop.offsetX}px), calc(-50% + ${crop.offsetY}px)) scale(${crop.zoom})`;
   parts.zoom.value = crop.zoom;
 }
 

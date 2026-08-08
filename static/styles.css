@@ -344,6 +344,7 @@ select {
   top: 50%;
   height: auto;
   width: auto;
+  max-width: none;
   pointer-events: none;
   transform-origin: center;
   user-select: none;
