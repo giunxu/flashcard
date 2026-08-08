@@ -11,6 +11,19 @@ const supabaseClient =
     ? window.supabase.createClient(supabaseSettings.url, supabaseSettings.anonKey)
     : null;
 
+function readStoredJson(key, fallback) {
+  try {
+    return JSON.parse(localStorage.getItem(key) || JSON.stringify(fallback));
+  } catch {
+    return fallback;
+  }
+}
+
+function readStoredNumber(key, fallback = 0) {
+  const value = Number(localStorage.getItem(key));
+  return Number.isFinite(value) ? value : fallback;
+}
+
 const state = {
   words: [],
   filtered: [],
@@ -20,9 +33,15 @@ const state = {
   session: null,
   profile: null,
   role: "guest",
-  learned: new Set(JSON.parse(localStorage.getItem("learnedWords") || "[]")),
+  learned: new Set(readStoredJson("learnedWords", [])),
+  studySeconds: readStoredNumber("studySeconds", 0),
+  studyTimer: null,
+  quotaLocked: false,
+  lastViewedWordId: "",
+  lastViewedDay: "",
   dragStartX: 0,
   dragCurrentX: 0,
+  dragStartedOnSpeak: false,
   isDragging: false,
   suppressNextSpeakClick: false,
   lastSpokenAt: 0,
@@ -66,6 +85,14 @@ const el = {
   prev: document.querySelector("#prevBtn"),
   learnControls: document.querySelector("#learnControls"),
   cardStage: document.querySelector("#cardStage"),
+  statsToggle: document.querySelector("#statsToggleBtn"),
+  statsPanel: document.querySelector("#statsPanel"),
+  statsLearnedCount: document.querySelector("#statsLearnedCount"),
+  statsTotalWords: document.querySelector("#statsTotalWords"),
+  statsStudyTime: document.querySelector("#statsStudyTime"),
+  statsPie: document.querySelector("#statsPie"),
+  statsLegend: document.querySelector("#statsLegend"),
+  statsEmpty: document.querySelector("#statsEmpty"),
   authToggle: document.querySelector("#authToggleBtn"),
   adminToggle: document.querySelector("#adminToggleBtn"),
   authPanel: document.querySelector("#authPanel"),
@@ -140,6 +167,7 @@ const el = {
   limitFree: document.querySelector("#limitFreeInput"),
   limitPaid: document.querySelector("#limitPaidInput"),
   saveRoleLimits: document.querySelector("#saveRoleLimitsBtn"),
+  toast: document.querySelector("#toastNotification"),
 };
 
 function isAdmin() {
@@ -155,17 +183,208 @@ function escapeHtml(value) {
     .replace(/'/g, "&#039;");
 }
 
+let toastTimer = null;
+let toastHideTimer = null;
+
+function showToast(message, type = "info") {
+  if (!el.toast || !message) return;
+  window.clearTimeout(toastTimer);
+  window.clearTimeout(toastHideTimer);
+  el.toast.textContent = message;
+  el.toast.className = `toast-notification ${type} show`;
+  el.toast.classList.remove("hidden");
+  toastTimer = window.setTimeout(() => {
+    el.toast.classList.remove("show");
+    toastHideTimer = window.setTimeout(() => el.toast.classList.add("hidden"), 180);
+  }, 5000);
+}
+
 function currentEditableWord() {
   return state.words.find((word) => word.id === state.editWordId) || currentWord();
 }
 
 function roleLimitLabel(role) {
   const limit = Number(state.roleLimits[role] ?? 0);
-  return limit > 0 ? `${limit} words` : "all words";
+  return limit > 0 ? `${limit} daily views` : "unlimited views";
+}
+
+function todayKey() {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const day = String(now.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function viewerKey() {
+  return state.session?.user?.id || "guest";
+}
+
+function dailyViewsKey() {
+  return `dailyViews:${viewerKey()}:${todayKey()}`;
+}
+
+function dailyViewLimit() {
+  const limit = Number(state.roleLimits[state.role] ?? 0);
+  return Number.isFinite(limit) ? Math.max(0, Math.floor(limit)) : 0;
+}
+
+function dailyViewsUsed() {
+  return readStoredNumber(dailyViewsKey(), 0);
+}
+
+function dailyViewsRemaining() {
+  const limit = dailyViewLimit();
+  if (limit <= 0) return Infinity;
+  return Math.max(0, limit - dailyViewsUsed());
+}
+
+function isDailyQuotaLocked() {
+  const limit = dailyViewLimit();
+  return limit > 0 && dailyViewsUsed() >= limit;
+}
+
+function recordDailyView(item) {
+  const limit = dailyViewLimit();
+  const day = todayKey();
+  state.quotaLocked = false;
+  if (item?.id && state.lastViewedWordId === item.id && state.lastViewedDay === day) return true;
+  if (limit <= 0 || state.adminMode) return true;
+  const used = dailyViewsUsed();
+  if (used >= limit) {
+    state.quotaLocked = true;
+    return false;
+  }
+  localStorage.setItem(dailyViewsKey(), String(used + 1));
+  state.lastViewedWordId = item?.id || "";
+  state.lastViewedDay = day;
+  updateAccessUi();
+  return true;
+}
+
+function renderDailyQuotaLock() {
+  state.quotaLocked = true;
+  el.wordText.textContent = "Daily limit reached";
+  el.wordMeaning.textContent = "";
+  el.wordCategory.textContent = "Come back tomorrow";
+  el.positionText.textContent = dailyViewsUsed();
+  el.totalWords.textContent = dailyViewLimit();
+  el.imageFrame.innerHTML = `<div class="grid h-full w-full place-items-center bg-yellow-100 text-7xl">🔒</div>`;
+  el.speechHint.textContent = state.session ? "Ask admin to upgrade your account." : "Log in to unlock more daily views.";
 }
 
 function saveLearned() {
   localStorage.setItem("learnedWords", JSON.stringify([...state.learned]));
+}
+
+function saveStudySeconds() {
+  localStorage.setItem("studySeconds", String(Math.max(0, Math.floor(state.studySeconds))));
+}
+
+function readStudyProgress() {
+  return readStoredJson("studyProgress", {});
+}
+
+function saveStudyProgress(item) {
+  if (!item?.id) return;
+  localStorage.setItem(
+    "studyProgress",
+    JSON.stringify({
+      wordId: item.id,
+      category: state.category,
+      query: el.search?.value || "",
+      updatedAt: new Date().toISOString(),
+    }),
+  );
+}
+
+function formatStudyDuration(totalSeconds) {
+  const seconds = Math.max(0, Math.floor(totalSeconds));
+  const hours = Math.floor(seconds / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  if (hours > 0) return `${hours}h ${minutes}m`;
+  if (minutes > 0) return `${minutes}m`;
+  return `${seconds}s`;
+}
+
+function learnedWordItems() {
+  return state.words.filter((item) => state.learned.has(item.id) || state.learned.has(item.word));
+}
+
+function learnedCategoryStats() {
+  const counts = new Map();
+  learnedWordItems().forEach((item) => {
+    counts.set(item.category, (counts.get(item.category) || 0) + 1);
+  });
+  return [...counts.entries()]
+    .map(([category, count]) => ({ category, count }))
+    .sort((left, right) => right.count - left.count || left.category.localeCompare(right.category));
+}
+
+function renderStats() {
+  if (!el.statsPanel) return;
+  const learnedItems = learnedWordItems();
+  const categoryStats = learnedCategoryStats();
+  const totalLearned = learnedItems.length;
+  const chartColors = ["#ec4899", "#0ea5e9", "#84cc16", "#f59e0b", "#8b5cf6", "#14b8a6", "#f43f5e", "#6366f1"];
+
+  el.statsLearnedCount.textContent = totalLearned;
+  el.statsTotalWords.textContent = state.words.length;
+  el.statsStudyTime.textContent = formatStudyDuration(state.studySeconds);
+  el.statsEmpty.classList.toggle("hidden", totalLearned > 0);
+
+  if (!totalLearned) {
+    el.statsPie.style.background = "#e0f2fe";
+    el.statsLegend.innerHTML = `<p class="text-sm font-black text-slate-500">No categories yet.</p>`;
+    return;
+  }
+
+  let start = 0;
+  const segments = categoryStats.map((item, index) => {
+    const end = start + (item.count / totalLearned) * 360;
+    const segment = `${chartColors[index % chartColors.length]} ${start}deg ${end}deg`;
+    start = end;
+    return segment;
+  });
+  el.statsPie.style.background = `conic-gradient(${segments.join(", ")})`;
+  el.statsLegend.innerHTML = categoryStats
+    .map((item, index) => {
+      const color = chartColors[index % chartColors.length];
+      return `
+        <div class="flex items-center justify-between gap-2 rounded-2xl bg-slate-50 px-3 py-2">
+          <span class="flex min-w-0 items-center gap-2">
+            <span class="h-3 w-3 shrink-0 rounded-full" style="background:${color}"></span>
+            <span class="truncate text-sm font-black">${escapeHtml(item.category)}</span>
+          </span>
+          <span class="text-sm font-black text-slate-500">${item.count}</span>
+        </div>
+      `;
+    })
+    .join("");
+}
+
+function markLearned(item) {
+  if (!item) return;
+  if (state.learned.has(item.id) || state.learned.has(item.word)) return;
+  state.learned.add(item.id || item.word);
+  saveLearned();
+  renderStats();
+}
+
+function isStudyTimerActive() {
+  return !document.hidden && !state.adminMode && !el.cardStage.classList.contains("hidden");
+}
+
+function startStudyTimer() {
+  if (state.studyTimer) return;
+  state.studyTimer = window.setInterval(() => {
+    if (!isStudyTimerActive()) return;
+    state.studySeconds += 1;
+    saveStudySeconds();
+    if (!el.statsPanel.classList.contains("hidden")) renderStats();
+  }, 1000);
+  window.addEventListener("pagehide", saveStudySeconds);
+  document.addEventListener("visibilitychange", saveStudySeconds);
 }
 
 function refreshVoices() {
@@ -198,7 +417,16 @@ function renderVoiceOptions() {
   el.speechVoice.value = state.speech.voiceURI || "";
 }
 
-function speak(word) {
+function speak(wordOrItem) {
+  if (state.quotaLocked) {
+    showToast("Daily view limit reached. Come back tomorrow.", "info");
+    return;
+  }
+
+  const item = typeof wordOrItem === "object" ? wordOrItem : state.words.find((entry) => entry.word === wordOrItem) || currentWord();
+  const word = item?.word || String(wordOrItem || "");
+  if (!word) return;
+
   if (!("speechSynthesis" in window)) {
     el.speechHint.textContent = "Speech is not supported in this browser.";
     return;
@@ -229,8 +457,7 @@ function speak(word) {
     el.speechHint.textContent = "Could not play audio. Tap the card and try again.";
   };
   window.speechSynthesis.speak(utterance);
-  state.learned.add(word);
-  saveLearned();
+  markLearned(item);
 }
 
 function currentWord() {
@@ -301,6 +528,11 @@ function selectWordByIndex(index, shouldSpeak = true) {
 
   state.currentIndex = (index + state.filtered.length) % state.filtered.length;
   const item = currentWord();
+  if (!recordDailyView(item)) {
+    renderDailyQuotaLock();
+    return;
+  }
+
   el.wordText.textContent = item.word;
   el.wordMeaning.textContent = item.meaning;
   el.wordCategory.textContent = item.category;
@@ -308,16 +540,12 @@ function selectWordByIndex(index, shouldSpeak = true) {
   el.totalWords.textContent = state.filtered.length;
   el.imageFrame.innerHTML = imageMarkup(item);
   el.imageFrame.style.setProperty("--card-color", item.color);
-  if (el.imageStatus) {
-    el.imageStatus.textContent = item.imageUrl
-      ? "This word has a custom image."
-      : "No custom image yet. Using the default illustration.";
-  }
   updateGoogleLink(item);
   fillAdminFields(item);
+  saveStudyProgress(item);
 
   el.speakArea.classList.remove("swipe-left", "swipe-right");
-  if (shouldSpeak) speak(item.word);
+  if (shouldSpeak) speak(item);
 }
 
 function applySpeechControls() {
@@ -567,7 +795,7 @@ function renderAdminWordList() {
   renderAdminSelectedPreview();
 }
 
-function applyFilter() {
+function applyFilter(preferredWordId = "") {
   const query = el.search.value.trim().toLowerCase();
   state.filtered = state.words.filter((item) => {
     const matchesCategory = state.category === "All" || item.category === state.category;
@@ -584,7 +812,8 @@ function applyFilter() {
     return;
   }
 
-  selectWordByIndex(0, false);
+  const preferredIndex = preferredWordId ? state.filtered.findIndex((item) => item.id === preferredWordId) : -1;
+  selectWordByIndex(preferredIndex >= 0 ? preferredIndex : 0, false);
 }
 
 function setAdminMode(enabled) {
@@ -619,10 +848,18 @@ function updateAccessUi() {
 
   if (state.role === "guest") {
     el.accessNote.classList.remove("hidden");
-    el.accessNote.textContent = `Trial mode: ${roleLimitLabel("guest")}. Log in to learn ${roleLimitLabel("free")} for free.`;
+    const remaining = dailyViewsRemaining();
+    el.accessNote.textContent =
+      remaining === Infinity
+        ? `Trial mode: ${roleLimitLabel("guest")}.`
+        : `Trial mode: ${remaining}/${dailyViewLimit()} views left today. Log in for ${roleLimitLabel("free")}.`;
   } else if (state.role === "free") {
     el.accessNote.classList.remove("hidden");
-    el.accessNote.textContent = `Free account: ${roleLimitLabel("free")}. Admin can upgrade users in Control Board.`;
+    const remaining = dailyViewsRemaining();
+    el.accessNote.textContent =
+      remaining === Infinity
+        ? `Free account: ${roleLimitLabel("free")}.`
+        : `Free account: ${remaining}/${dailyViewLimit()} views left today. Admin can upgrade users in Control Board.`;
   } else if (state.role === "paid") {
     el.accessNote.classList.add("hidden");
     el.accessNote.textContent = `Paid account: ${roleLimitLabel("paid")} unlocked.`;
@@ -782,9 +1019,19 @@ async function reloadWords() {
   });
   state.categories = sortedCategories(state.words);
   state.filtered = state.words;
+  const progress = readStudyProgress();
+  if (progress?.category === "All" || state.categories.includes(progress?.category)) {
+    state.category = progress.category;
+  } else if (state.category !== "All" && !state.categories.includes(state.category)) {
+    state.category = "All";
+  }
   renderCategories();
-  applyFilter();
+  if (typeof progress?.query === "string") {
+    el.search.value = progress.query;
+  }
+  applyFilter(progress?.wordId || "");
   renderAdminWordList();
+  renderStats();
 }
 
 async function updateWordInStore(item, patch) {
@@ -885,39 +1132,39 @@ async function uploadImageFile(item, file) {
 
 async function runAdminAction(message, action) {
   if (!isAdmin()) {
-    el.imageStatus.textContent = "Only admins can edit content.";
+    showToast("Only admins can edit content.", "error");
     return;
   }
 
-  el.imageStatus.textContent = message;
+  showToast(message, "info");
   try {
     await action();
   } catch (error) {
     console.error(error);
-    el.imageStatus.textContent = error.message || "Could not save. Check your Supabase configuration.";
+    showToast(error.message || "Could not save. Check your Supabase configuration.", "error");
   }
 }
 
 async function loadUsers() {
   if (!isAdmin()) return;
   if (!supabaseClient) {
-    el.usersStatus.textContent = "Supabase is required to manage users.";
+    showToast("Supabase is required to manage users.", "error");
     return;
   }
 
-  el.usersStatus.textContent = "Loading users...";
+  showToast("Loading users...", "info");
   const { data, error } = await supabaseClient
     .from("profiles")
     .select("id, email, role, created_at")
     .order("created_at", { ascending: false });
 
   if (error) {
-    el.usersStatus.textContent = error.message || "Could not load users.";
+    showToast(error.message || "Could not load users.", "error");
     return;
   }
 
   state.users = data || [];
-  el.usersStatus.textContent = state.users.length ? "" : "No users found.";
+  if (!state.users.length) showToast("No users found.", "info");
   renderUsers();
 }
 
@@ -951,20 +1198,20 @@ function renderUsers() {
 
 async function updateUserRole(userId, role) {
   if (!isAdmin() || !supabaseClient) return;
-  el.usersStatus.textContent = "Saving user role...";
+  showToast("Saving user role...", "info");
   const { error } = await supabaseClient
     .from("profiles")
     .update({ role, updated_at: new Date().toISOString() })
     .eq("id", userId);
 
   if (error) {
-    el.usersStatus.textContent = error.message || "Could not save user role.";
+    showToast(error.message || "Could not save user role.", "error");
     return;
   }
 
   const user = state.users.find((entry) => entry.id === userId);
   if (user) user.role = role;
-  el.usersStatus.textContent = "User role saved.";
+  showToast("User role saved.", "success");
   renderUsers();
 }
 
@@ -977,7 +1224,7 @@ async function saveRoleLimits() {
     admin: 0,
   };
   applyRoleLimits(limits);
-  el.usersStatus.textContent = "Saving role limits...";
+  showToast("Saving daily limits...", "info");
 
   if (supabaseClient) {
     const { error } = await supabaseClient.from("app_settings").upsert({
@@ -986,7 +1233,7 @@ async function saveRoleLimits() {
       updated_at: new Date().toISOString(),
     });
     if (error) {
-      el.usersStatus.textContent = error.message || "Could not save role limits.";
+      showToast(error.message || "Could not save daily limits.", "error");
       return;
     }
   } else {
@@ -994,7 +1241,7 @@ async function saveRoleLimits() {
   }
 
   updateAccessUi();
-  el.usersStatus.textContent = "Role limits saved.";
+  showToast("Daily limits saved.", "success");
 }
 
 async function saveEditedImage() {
@@ -1003,11 +1250,11 @@ async function saveEditedImage() {
     await uploadImageFile(currentEditableWord(), cropped);
     clearCrop("edit");
     renderAdminWordList();
-    el.imageStatus.textContent = "Cropped image saved.";
+    showToast("Cropped image saved.", "success");
     return;
   }
   await updateWordInStore(currentEditableWord(), { imageUrl: el.imageUrl.value.trim() });
-  el.imageStatus.textContent = "Image link saved.";
+  showToast("Image link saved.", "success");
 }
 
 function bindAdminTools() {
@@ -1048,7 +1295,7 @@ function bindAdminTools() {
   el.saveRoleLimits.addEventListener("click", saveRoleLimits);
   el.cancelEditCrop.addEventListener("click", () => {
     clearCrop("edit");
-    el.imageStatus.textContent = "Image crop cancelled.";
+    showToast("Image crop cancelled.", "info");
   });
   el.saveEditCrop.addEventListener("click", () => {
     runAdminAction("Cropping and uploading image...", saveEditedImage);
@@ -1098,11 +1345,12 @@ function bindAdminTools() {
       await updateWordInStore(currentEditableWord(), {
         word: el.editWord.value.trim(),
         category: el.editCategory.value.trim(),
+        imageUrl: el.imageUrl.value.trim(),
         meaning: el.editMeaning.value.trim(),
         emoji: el.editEmoji.value.trim() || "⭐",
         color: el.editColor.value || "#ffd166",
       });
-      el.imageStatus.textContent = "Word content saved.";
+      showToast("Word content saved.", "success");
     });
   });
 
@@ -1113,7 +1361,7 @@ function bindAdminTools() {
   el.imageFile.addEventListener("change", () => {
     if (!el.imageFile.files.length) return;
     startCrop("edit", el.imageFile.files[0]);
-    el.imageStatus.textContent = "Adjust the image, then tap Save Image.";
+    showToast("Adjust the image, then tap Save Image.", "info");
     el.imageFile.value = "";
   });
   el.newImageFile.addEventListener("change", () => {
@@ -1123,14 +1371,14 @@ function bindAdminTools() {
       return;
     }
     startCrop("new", el.newImageFile.files[0]);
-    el.imageStatus.textContent = "Adjust the image, then tap Add Word.";
+    showToast("Adjust the image, then tap Add Word.", "info");
   });
 
   el.deleteWord.addEventListener("click", () => {
     runAdminAction("Deleting word...", async () => {
       const item = currentEditableWord();
       if (!confirm(`Delete "${item.word}"?`)) {
-        el.imageStatus.textContent = "Delete cancelled.";
+        showToast("Delete cancelled.", "info");
         return;
       }
       if (supabaseClient) {
@@ -1145,7 +1393,7 @@ function bindAdminTools() {
       renderCategories();
       selectWordByIndex(state.currentIndex, false);
       renderAdminWordList();
-      el.imageStatus.textContent = "Word deleted.";
+      showToast("Word deleted.", "success");
     });
   });
 
@@ -1189,7 +1437,7 @@ function bindAdminTools() {
       el.newImageFile.value = "";
       clearCrop("new");
       renderNewImagePreview();
-      el.imageStatus.textContent = "New word added.";
+      showToast("New word added.", "success");
       setAdminTab("words");
     });
   });
@@ -1217,8 +1465,8 @@ function bindAdminTools() {
       } else {
         localStorage.setItem("speechSettings", JSON.stringify(state.speech));
       }
-      el.imageStatus.textContent = "Voice settings saved.";
-      speak(currentWord().word);
+      showToast("Voice settings saved.", "success");
+      speak(currentWord());
     });
   });
 }
@@ -1273,6 +1521,7 @@ async function handleLogout() {
 function bindAuth() {
   el.authToggle.addEventListener("click", (event) => {
     event.stopPropagation();
+    el.statsPanel.classList.add("hidden");
     el.authPanel.classList.toggle("hidden");
   });
   el.authPanel.addEventListener("click", (event) => {
@@ -1293,6 +1542,21 @@ function bindAuth() {
       await reloadWords();
     });
   }
+}
+
+function bindStats() {
+  el.statsToggle.addEventListener("click", (event) => {
+    event.stopPropagation();
+    renderStats();
+    el.authPanel.classList.add("hidden");
+    el.statsPanel.classList.toggle("hidden");
+  });
+  el.statsPanel.addEventListener("click", (event) => {
+    event.stopPropagation();
+  });
+  document.addEventListener("click", () => {
+    el.statsPanel.classList.add("hidden");
+  });
 }
 
 function showAuthCallbackMessage() {
@@ -1316,6 +1580,7 @@ function bindSwipe() {
   el.flashCard.addEventListener("pointerdown", (event) => {
     if (event.target.closest("#prevBtn, #nextBtn, #randomBtn")) return;
     state.isDragging = true;
+    state.dragStartedOnSpeak = Boolean(event.target.closest("#speakArea"));
     state.dragStartX = event.clientX;
     state.dragCurrentX = event.clientX;
     el.flashCard.setPointerCapture(event.pointerId);
@@ -1334,9 +1599,15 @@ function bindSwipe() {
     const distance = state.dragCurrentX - state.dragStartX;
     el.speakArea.style.transform = "";
     if (Math.abs(distance) < 70) {
+      if (state.dragStartedOnSpeak) {
+        state.suppressNextSpeakClick = true;
+        speak(currentWord());
+      }
+      state.dragStartedOnSpeak = false;
       return;
     }
     state.suppressNextSpeakClick = true;
+    state.dragStartedOnSpeak = false;
     if (distance < 0) {
       el.speakArea.classList.add("swipe-left");
       window.setTimeout(() => selectWordByIndex(state.currentIndex + 1), 130);
@@ -1348,6 +1619,7 @@ function bindSwipe() {
 
   el.flashCard.addEventListener("pointercancel", () => {
     state.isDragging = false;
+    state.dragStartedOnSpeak = false;
     el.speakArea.style.transform = "";
   });
 }
@@ -1358,6 +1630,7 @@ function bindEvents() {
     window.speechSynthesis.onvoiceschanged = refreshVoices;
   }
   bindAuth();
+  bindStats();
   bindAdminTools();
   el.search.addEventListener("input", applyFilter);
   el.category.addEventListener("change", () => {
@@ -1369,12 +1642,13 @@ function bindEvents() {
       state.suppressNextSpeakClick = false;
       return;
     }
-    speak(currentWord().word);
+    speak(currentWord());
   });
   el.next.addEventListener("click", () => selectWordByIndex(state.currentIndex + 1));
   el.prev.addEventListener("click", () => selectWordByIndex(state.currentIndex - 1));
   el.random.addEventListener("click", () => selectWordByIndex(Math.floor(Math.random() * state.filtered.length)));
   bindSwipe();
+  startStudyTimer();
 }
 
 async function init() {

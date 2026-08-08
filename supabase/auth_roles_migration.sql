@@ -125,22 +125,15 @@ drop policy if exists "words_public_update" on public.words;
 drop policy if exists "words_public_insert" on public.words;
 drop policy if exists "words_guest_read_15" on public.words;
 drop policy if exists "words_user_read_by_role" on public.words;
+drop policy if exists "words_public_read_all" on public.words;
 drop policy if exists "words_admin_insert" on public.words;
 drop policy if exists "words_admin_update" on public.words;
 drop policy if exists "words_admin_delete" on public.words;
 
-create policy "words_guest_read_15"
+create policy "words_public_read_all"
 on public.words for select
-to anon
-using (sort_order < private.role_word_limit('guest'));
-
-create policy "words_user_read_by_role"
-on public.words for select
-to authenticated
-using (
-  private.current_user_role() = 'admin'
-  or sort_order < private.role_word_limit(private.current_user_role())
-);
+to anon, authenticated
+using (true);
 
 create policy "words_admin_insert"
 on public.words for insert
