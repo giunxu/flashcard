@@ -653,6 +653,9 @@ async function handleSignup() {
   const { error } = await supabaseClient.auth.signUp({
     email: el.email.value.trim(),
     password: el.password.value,
+    options: {
+      emailRedirectTo: `${window.location.origin}${window.location.pathname}?v=email-confirmed`,
+    },
   });
   el.authStatus.textContent = error ? error.message : "Đã tạo tài khoản. Kiểm tra email nếu Supabase yêu cầu xác nhận.";
 }
@@ -690,6 +693,23 @@ function bindAuth() {
       await refreshProfile();
       await reloadWords();
     });
+  }
+}
+
+function showAuthCallbackMessage() {
+  const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ""));
+  const searchParams = new URLSearchParams(window.location.search);
+  const error = hashParams.get("error_description") || searchParams.get("error_description");
+
+  if (error) {
+    el.authPanel.classList.remove("hidden");
+    el.authStatus.textContent = decodeURIComponent(error.replace(/\+/g, " "));
+    return;
+  }
+
+  if (hashParams.get("access_token") || searchParams.get("code") || searchParams.get("v") === "email-confirmed") {
+    el.authPanel.classList.remove("hidden");
+    el.authStatus.textContent = "Email đã xác nhận. Nếu chưa tự đăng nhập, nhập email/mật khẩu rồi bấm Đăng nhập.";
   }
 }
 
@@ -757,6 +777,7 @@ async function init() {
     const { data } = await supabaseClient.auth.getSession();
     state.session = data.session;
   }
+  showAuthCallbackMessage();
   await refreshProfile();
   await loadSpeechSettings();
   await reloadWords();
