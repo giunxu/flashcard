@@ -49,6 +49,7 @@ const el = {
   next: document.querySelector("#nextBtn"),
   prev: document.querySelector("#prevBtn"),
   authToggle: document.querySelector("#authToggleBtn"),
+  adminToggle: document.querySelector("#adminToggleBtn"),
   authPanel: document.querySelector("#authPanel"),
   signedOutAuth: document.querySelector("#signedOutAuth"),
   signedInAuth: document.querySelector("#signedInAuth"),
@@ -63,9 +64,8 @@ const el = {
   roleBadge: document.querySelector("#roleBadge"),
   accessNote: document.querySelector("#accessNote"),
   adminTools: document.querySelector("#adminTools"),
-  toggleAdminTools: document.querySelector("#toggleAdminTools"),
+  adminClose: document.querySelector("#adminCloseBtn"),
   adminPanel: document.querySelector("#adminPanel"),
-  adminToolsIcon: document.querySelector("#adminToolsIcon"),
   editWord: document.querySelector("#editWordInput"),
   editCategory: document.querySelector("#editCategoryInput"),
   editMeaning: document.querySelector("#editMeaningInput"),
@@ -284,16 +284,21 @@ function updateAccessUi() {
   el.signedOutAuth.classList.toggle("hidden", Boolean(state.session));
   el.signedInAuth.classList.toggle("hidden", !state.session);
   el.userEmail.textContent = state.session?.user?.email || "";
-  el.adminTools.classList.toggle("hidden", !isAdmin());
+  el.adminToggle.classList.toggle("hidden", !isAdmin());
+  if (!isAdmin()) el.adminTools.classList.add("hidden");
 
   if (state.role === "guest") {
+    el.accessNote.classList.remove("hidden");
     el.accessNote.textContent = "Bạn đang dùng thử 15 từ. Đăng nhập để học 100 từ miễn phí.";
   } else if (state.role === "free") {
+    el.accessNote.classList.remove("hidden");
     el.accessNote.textContent = "Tài khoản Free học 100 từ đầu. Admin có thể gán Paid trong Supabase.";
   } else if (state.role === "paid") {
+    el.accessNote.classList.add("hidden");
     el.accessNote.textContent = "Tài khoản Paid học toàn bộ từ vựng.";
   } else {
-    el.accessNote.textContent = "Admin có toàn quyền học, sửa, thêm, xóa từ và upload ảnh.";
+    el.accessNote.classList.add("hidden");
+    el.accessNote.textContent = "";
   }
 }
 
@@ -514,9 +519,18 @@ async function runAdminAction(message, action) {
 }
 
 function bindAdminTools() {
-  el.toggleAdminTools.addEventListener("click", () => {
-    const isHidden = el.adminPanel.classList.toggle("hidden");
-    el.adminToolsIcon.textContent = isHidden ? "+" : "-";
+  el.adminToggle.addEventListener("click", (event) => {
+    event.stopPropagation();
+    if (!isAdmin()) return;
+    el.adminTools.classList.remove("hidden");
+  });
+  el.adminClose.addEventListener("click", () => {
+    el.adminTools.classList.add("hidden");
+  });
+  el.adminTools.addEventListener("click", (event) => {
+    if (event.target === el.adminTools) {
+      el.adminTools.classList.add("hidden");
+    }
   });
 
   el.saveWord.addEventListener("click", () => {
