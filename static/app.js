@@ -283,7 +283,6 @@ function updateAccessUi() {
   el.authToggle.textContent = state.session ? "Tài khoản" : "Đăng nhập";
   el.signedOutAuth.classList.toggle("hidden", Boolean(state.session));
   el.signedInAuth.classList.toggle("hidden", !state.session);
-  el.signedInAuth.classList.toggle("flex", Boolean(state.session));
   el.userEmail.textContent = state.session?.user?.email || "";
   el.adminTools.classList.toggle("hidden", !isAdmin());
 
@@ -679,8 +678,15 @@ async function handleLogout() {
 }
 
 function bindAuth() {
-  el.authToggle.addEventListener("click", () => {
+  el.authToggle.addEventListener("click", (event) => {
+    event.stopPropagation();
     el.authPanel.classList.toggle("hidden");
+  });
+  el.authPanel.addEventListener("click", (event) => {
+    event.stopPropagation();
+  });
+  document.addEventListener("click", () => {
+    el.authPanel.classList.add("hidden");
   });
   el.login.addEventListener("click", handleLogin);
   el.signup.addEventListener("click", handleSignup);
