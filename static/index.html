@@ -16,7 +16,7 @@
         },
       };
     </script>
-    <link rel="stylesheet" href="styles.css?v=quota-no-refresh-count" />
+    <link rel="stylesheet" href="styles.css?v=no-study-search" />
   </head>
   <body class="bg-[#fff4df] font-display text-slate-900">
     <div id="toastNotification" class="toast-notification hidden" role="status" aria-live="polite"></div>
@@ -122,11 +122,7 @@
 
       <section id="accessNote" class="access-note rounded-2xl bg-yellow-100 px-3 text-center font-black text-yellow-900"></section>
 
-      <section id="learnControls" class="controls-grid grid gap-2 sm:grid-cols-[1fr_180px] sm:items-end">
-        <label class="block">
-          <span class="control-label font-black uppercase text-slate-500">Search</span>
-          <input id="searchInput" class="control-input mt-1 w-full rounded-2xl border-white bg-white px-3 font-extrabold shadow-md outline-none focus:border-sky-300" placeholder="dog, apple, happy..." />
-        </label>
+      <section id="learnControls" class="controls-grid grid gap-2">
         <label class="block">
           <span class="control-label font-black uppercase text-slate-500">Category</span>
           <select id="categorySelect" class="control-input mt-1 w-full rounded-2xl border-white bg-white px-3 font-extrabold shadow-md outline-none focus:border-sky-300"></select>
@@ -314,6 +310,6 @@
     </main>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="supabase-config.js"></script>
-    <script src="app.js?v=quota-no-refresh-count"></script>
+    <script src="app.js?v=no-study-search"></script>
   </body>
 </html>

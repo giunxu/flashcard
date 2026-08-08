@@ -77,7 +77,6 @@ const state = {
 };
 
 const el = {
-  search: document.querySelector("#searchInput"),
   category: document.querySelector("#categorySelect"),
   flashCard: document.querySelector("#flashCard"),
   imageFrame: document.querySelector("#imageFrame"),
@@ -359,7 +358,6 @@ function saveStudyProgress(item) {
     JSON.stringify({
       wordId: item.id,
       category: state.category,
-      query: el.search?.value || "",
       updatedAt: new Date().toISOString(),
     }),
   );
@@ -875,11 +873,9 @@ function renderAdminWordList() {
 }
 
 function applyFilter(preferredWordId = "") {
-  const query = el.search.value.trim().toLowerCase();
   state.filtered = state.words.filter((item) => {
     const matchesCategory = state.category === "All" || item.category === state.category;
-    const matchesQuery = !query || item.word.includes(query) || item.category.toLowerCase().includes(query);
-    return matchesCategory && matchesQuery;
+    return matchesCategory;
   });
 
   if (!state.filtered.length) {
@@ -1122,9 +1118,6 @@ async function reloadWords() {
     state.category = "All";
   }
   renderCategories();
-  if (typeof progress?.query === "string") {
-    el.search.value = progress.query;
-  }
   applyFilter(progress?.wordId || "");
   renderAdminWordList();
   renderStats();
@@ -1851,7 +1844,6 @@ function bindEvents() {
   bindStats();
   bindDonate();
   bindAdminTools();
-  el.search.addEventListener("input", applyFilter);
   el.category.addEventListener("change", () => {
     state.category = el.category.value;
     applyFilter();
