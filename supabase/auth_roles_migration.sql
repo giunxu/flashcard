@@ -6,6 +6,12 @@ create table if not exists public.profiles (
   updated_at timestamptz not null default now()
 );
 
+create table if not exists public.app_settings (
+  key text primary key,
+  value jsonb not null default '{}'::jsonb,
+  updated_at timestamptz not null default now()
+);
+
 create index if not exists profiles_role_idx on public.profiles (role);
 create schema if not exists private;
 
@@ -78,6 +84,7 @@ on conflict (id) do update set
 
 alter table public.words enable row level security;
 alter table public.profiles enable row level security;
+alter table public.app_settings enable row level security;
 
 drop policy if exists "words_public_read" on public.words;
 drop policy if exists "words_public_update" on public.words;
@@ -133,6 +140,36 @@ on public.profiles for update
 to authenticated
 using (private.current_user_role() = 'admin')
 with check (private.current_user_role() = 'admin');
+
+drop policy if exists "app_settings_public_read" on public.app_settings;
+drop policy if exists "app_settings_admin_insert" on public.app_settings;
+drop policy if exists "app_settings_admin_update" on public.app_settings;
+drop policy if exists "app_settings_admin_delete" on public.app_settings;
+
+create policy "app_settings_public_read"
+on public.app_settings for select
+to anon, authenticated
+using (true);
+
+create policy "app_settings_admin_insert"
+on public.app_settings for insert
+to authenticated
+with check (private.current_user_role() = 'admin');
+
+create policy "app_settings_admin_update"
+on public.app_settings for update
+to authenticated
+using (private.current_user_role() = 'admin')
+with check (private.current_user_role() = 'admin');
+
+create policy "app_settings_admin_delete"
+on public.app_settings for delete
+to authenticated
+using (private.current_user_role() = 'admin');
+
+insert into public.app_settings (key, value)
+values ('speech', '{"rate": 0.65, "volume": 1}'::jsonb)
+on conflict (key) do nothing;
 
 insert into storage.buckets (id, name, public)
 values ('word-images', 'word-images', true)

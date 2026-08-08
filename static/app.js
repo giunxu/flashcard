@@ -27,6 +27,10 @@ const state = {
   lastSpokenAt: 0,
   lastSpokenWord: "",
   voices: [],
+  speech: {
+    rate: 0.65,
+    volume: 1,
+  },
 };
 
 const el = {
@@ -41,7 +45,6 @@ const el = {
   totalWords: document.querySelector("#totalWords"),
   speakArea: document.querySelector("#speakArea"),
   speechHint: document.querySelector("#speechHint"),
-  repeat: document.querySelector("#repeatBtn"),
   random: document.querySelector("#randomBtn"),
   next: document.querySelector("#nextBtn"),
   prev: document.querySelector("#prevBtn"),
@@ -81,6 +84,11 @@ const el = {
   newEmoji: document.querySelector("#newEmojiInput"),
   newColor: document.querySelector("#newColorInput"),
   addWord: document.querySelector("#addWordBtn"),
+  speechRate: document.querySelector("#speechRateInput"),
+  speechVolume: document.querySelector("#speechVolumeInput"),
+  speechRateValue: document.querySelector("#speechRateValue"),
+  speechVolumeValue: document.querySelector("#speechVolumeValue"),
+  saveSpeechSettings: document.querySelector("#saveSpeechSettingsBtn"),
 };
 
 function isAdmin() {
@@ -120,8 +128,9 @@ function speak(word) {
   window.speechSynthesis.resume();
   const utterance = new SpeechSynthesisUtterance(word);
   utterance.lang = "en-US";
-  utterance.rate = 0.78;
+  utterance.rate = state.speech.rate;
   utterance.pitch = 1.08;
+  utterance.volume = state.speech.volume;
   const voice = englishVoice();
   if (voice) utterance.voice = voice;
   utterance.onstart = () => {
@@ -131,7 +140,7 @@ function speak(word) {
     el.speechHint.textContent = "Bấm thẻ để nghe";
   };
   utterance.onerror = () => {
-    el.speechHint.textContent = "Chưa phát được tiếng, bấm Nghe lại thử nhé.";
+    el.speechHint.textContent = "Chưa phát được tiếng, bấm thẻ thử lại nhé.";
   };
   window.speechSynthesis.speak(utterance);
   state.learned.add(word);
@@ -219,6 +228,13 @@ function selectWordByIndex(index, shouldSpeak = true) {
 
   el.flashCard.classList.remove("swipe-left", "swipe-right");
   if (shouldSpeak) speak(item.word);
+}
+
+function applySpeechControls() {
+  el.speechRate.value = state.speech.rate;
+  el.speechVolume.value = state.speech.volume;
+  el.speechRateValue.textContent = `${Number(state.speech.rate).toFixed(2)}x`;
+  el.speechVolumeValue.textContent = `${Math.round(Number(state.speech.volume) * 100)}%`;
 }
 
 function sortedCategories(words) {
@@ -343,6 +359,43 @@ async function loadWords() {
   } catch (error) {
     return loadWordsFromLocalApi();
   }
+}
+
+function readLocalSpeechSettings() {
+  try {
+    return JSON.parse(localStorage.getItem("speechSettings") || "{}");
+  } catch {
+    return {};
+  }
+}
+
+function applySpeechSettings(value) {
+  const rate = Number(value?.rate);
+  const volume = Number(value?.volume);
+  state.speech = {
+    rate: Number.isFinite(rate) ? Math.min(1.05, Math.max(0.45, rate)) : 0.65,
+    volume: Number.isFinite(volume) ? Math.min(1, Math.max(0.2, volume)) : 1,
+  };
+  applySpeechControls();
+}
+
+async function loadSpeechSettings() {
+  if (supabaseClient) {
+    try {
+      const { data, error } = await supabaseClient
+        .from("app_settings")
+        .select("value")
+        .eq("key", "speech")
+        .maybeSingle();
+      if (error) throw error;
+      applySpeechSettings(data?.value || {});
+      return;
+    } catch (error) {
+      console.warn("Speech settings load failed, using local defaults.", error);
+    }
+  }
+
+  applySpeechSettings(readLocalSpeechSettings());
 }
 
 async function reloadWords() {
@@ -550,6 +603,32 @@ function bindAdminTools() {
       el.imageStatus.textContent = "Đã thêm từ mới.";
     });
   });
+
+  const updateSpeechPreview = () => {
+    applySpeechSettings({
+      rate: Number(el.speechRate.value),
+      volume: Number(el.speechVolume.value),
+    });
+  };
+  el.speechRate.addEventListener("input", updateSpeechPreview);
+  el.speechVolume.addEventListener("input", updateSpeechPreview);
+  el.saveSpeechSettings.addEventListener("click", () => {
+    runAdminAction("Đang lưu giọng đọc...", async () => {
+      updateSpeechPreview();
+      if (supabaseClient) {
+        const { error } = await supabaseClient.from("app_settings").upsert({
+          key: "speech",
+          value: state.speech,
+          updated_at: new Date().toISOString(),
+        });
+        if (error) throw error;
+      } else {
+        localStorage.setItem("speechSettings", JSON.stringify(state.speech));
+      }
+      el.imageStatus.textContent = "Đã lưu giọng đọc.";
+      speak(currentWord().word);
+    });
+  });
 }
 
 async function handleLogin() {
@@ -616,7 +695,7 @@ function bindAuth() {
 
 function bindSwipe() {
   el.flashCard.addEventListener("pointerdown", (event) => {
-    if (event.target.closest("#prevBtn, #nextBtn, #repeatBtn, #randomBtn")) return;
+    if (event.target.closest("#prevBtn, #nextBtn, #randomBtn")) return;
     state.isDragging = true;
     state.dragStartX = event.clientX;
     state.dragCurrentX = event.clientX;
@@ -667,7 +746,6 @@ function bindEvents() {
     applyFilter();
   });
   el.speakArea.addEventListener("click", () => speak(currentWord().word));
-  el.repeat.addEventListener("click", () => speak(currentWord().word));
   el.next.addEventListener("click", () => selectWordByIndex(state.currentIndex + 1));
   el.prev.addEventListener("click", () => selectWordByIndex(state.currentIndex - 1));
   el.random.addEventListener("click", () => selectWordByIndex(Math.floor(Math.random() * state.filtered.length)));
@@ -680,6 +758,7 @@ async function init() {
     state.session = data.session;
   }
   await refreshProfile();
+  await loadSpeechSettings();
   await reloadWords();
   bindEvents();
 }

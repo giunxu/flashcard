@@ -85,9 +85,8 @@
             <p id="speechHint" class="mt-4 rounded-full bg-emerald-100 px-4 py-2 text-sm font-black text-emerald-800">Bấm thẻ để nghe</p>
           </button>
 
-          <div class="relative mt-4 grid grid-cols-4 gap-2">
+          <div class="relative mt-4 grid grid-cols-3 gap-2">
             <button id="prevBtn" class="rounded-2xl bg-sky-500 py-3 text-sm font-black text-white shadow-lg shadow-sky-200 active:scale-95">Trước</button>
-            <button id="repeatBtn" class="rounded-2xl bg-pink-500 py-3 text-sm font-black text-white shadow-lg shadow-pink-200 active:scale-95">Nghe</button>
             <button id="nextBtn" class="rounded-2xl bg-lime-500 py-3 text-sm font-black text-white shadow-lg shadow-lime-200 active:scale-95">Tiếp</button>
             <button id="randomBtn" class="rounded-2xl bg-violet-500 py-3 text-sm font-black text-white shadow-lg shadow-violet-200 active:scale-95">Đổi</button>
           </div>
@@ -100,6 +99,27 @@
           <span id="adminToolsIcon">+</span>
         </button>
         <div id="adminPanel" class="mt-4 hidden space-y-4">
+          <div class="rounded-3xl bg-yellow-50 p-4">
+            <p class="mb-3 text-sm font-black uppercase text-yellow-800">Giọng đọc</p>
+            <div class="grid gap-4 sm:grid-cols-2">
+              <label class="block">
+                <span class="flex items-center justify-between text-sm font-black text-slate-600">
+                  <span>Tốc độ</span>
+                  <span id="speechRateValue">0.65x</span>
+                </span>
+                <input id="speechRateInput" class="mt-2 w-full accent-pink-500" type="range" min="0.45" max="1.05" step="0.05" value="0.65" />
+              </label>
+              <label class="block">
+                <span class="flex items-center justify-between text-sm font-black text-slate-600">
+                  <span>Âm lượng</span>
+                  <span id="speechVolumeValue">100%</span>
+                </span>
+                <input id="speechVolumeInput" class="mt-2 w-full accent-sky-500" type="range" min="0.2" max="1" step="0.05" value="1" />
+              </label>
+            </div>
+            <button id="saveSpeechSettingsBtn" class="mt-3 w-full rounded-2xl bg-pink-500 px-3 py-3 text-sm font-black text-white active:scale-95">Lưu giọng đọc</button>
+          </div>
+
           <div class="grid gap-2 sm:grid-cols-2">
             <input id="editWordInput" class="rounded-2xl border-4 border-yellow-100 px-4 py-3 font-bold outline-none focus:border-sky-300" placeholder="Word" />
             <input id="editCategoryInput" class="rounded-2xl border-4 border-yellow-100 px-4 py-3 font-bold outline-none focus:border-sky-300" placeholder="Category" />

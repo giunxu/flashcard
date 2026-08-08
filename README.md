@@ -133,3 +133,7 @@ Email/password login dùng được ngay sau khi bật Auth mặc định của 
 ### Upload ảnh
 
 Chỉ admin thấy panel sửa nội dung. Ảnh upload sẽ được crop giữa và ép về vuông `700x700px` bằng browser canvas, sau đó upload lên Supabase Storage bucket `word-images`.
+
+### Cấu hình giọng đọc
+
+Admin có thể chỉnh tốc độ và âm lượng trong panel quản trị. Cấu hình được lưu vào bảng `app_settings` trên Supabase, nên mọi thiết bị sẽ dùng cùng tốc độ/âm lượng đọc.
