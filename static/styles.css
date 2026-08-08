@@ -20,6 +20,10 @@ select {
   font: inherit;
 }
 
+.hidden {
+  display: none !important;
+}
+
 .app-shell {
   height: 100dvh;
   overflow: hidden;
@@ -80,24 +84,187 @@ select {
   margin-top: 10px;
 }
 
+.admin-screen {
+  min-height: 0;
+  margin-top: 10px;
+  overflow: hidden;
+}
+
+.admin-panel {
+  height: 100%;
+  min-height: 0;
+}
+
+.admin-body,
+.admin-tab-panels {
+  min-height: 0;
+}
+
+.admin-tab-panel {
+  height: 100%;
+  min-height: 0;
+}
+
+.admin-words-panel {
+  display: block;
+}
+
+.admin-words-panel.hidden {
+  display: none;
+}
+
+.admin-words-normal {
+  display: grid;
+  height: 100%;
+  min-height: 0;
+  grid-template-rows: auto minmax(0, 1fr) auto auto auto;
+  gap: 0.5rem;
+}
+
+.admin-words-normal.hidden {
+  display: none !important;
+}
+
+.admin-edit-row {
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 0.9fr) minmax(0, 1.25fr);
+}
+
+.admin-edit-row input,
+.admin-edit-row select {
+  min-width: 0;
+}
+
+@media (max-width: 520px) {
+  .admin-edit-row input,
+  .admin-edit-row select {
+    padding-left: 0.55rem;
+    padding-right: 0.55rem;
+    font-size: 0.75rem;
+  }
+}
+
+.admin-tab {
+  background: #fff7ed;
+  color: #475569;
+}
+
+.admin-tab.active {
+  background: #ec4899;
+  color: #ffffff;
+  box-shadow: 0 10px 18px rgba(236, 72, 153, 0.2);
+}
+
+.admin-word-list {
+  min-height: 0;
+  overflow: auto;
+  padding-right: 2px;
+}
+
+.users-list {
+  max-height: min(36dvh, 320px);
+  overflow: auto;
+  padding-right: 2px;
+}
+
+.admin-word-row {
+  background: #f8fafc;
+  border: 3px solid transparent;
+}
+
+.admin-word-row.active {
+  background: #fff7ed;
+  border-color: #fb923c;
+}
+
+.admin-word-thumb img,
+.admin-preview-image img,
+.new-image-preview img {
+  display: block;
+  height: 100%;
+  width: 100%;
+  object-fit: cover;
+}
+
+.new-image-preview,
+.crop-frame {
+  aspect-ratio: 1 / 1;
+  width: min(100%, 260px) !important;
+  height: auto !important;
+}
+
+.new-image-preview {
+  justify-self: center;
+}
+
+.crop-editor {
+  display: grid;
+  height: 100%;
+  min-height: 0;
+  align-content: center;
+  gap: 0.5rem;
+  justify-items: center;
+}
+
+.crop-editor.hidden {
+  display: none !important;
+}
+
+.crop-frame {
+  position: relative;
+  overflow: hidden;
+  touch-action: none;
+  cursor: grab;
+  border: 4px solid #ffffff;
+  border-radius: 24px;
+  background: #f0f9ff;
+  box-shadow: inset 0 2px 16px rgba(15, 23, 42, 0.08);
+}
+
+.crop-editor label {
+  width: min(100%, 320px);
+}
+
+.crop-frame:active {
+  cursor: grabbing;
+}
+
+.crop-frame img {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  height: 100%;
+  width: 100%;
+  object-fit: cover;
+  pointer-events: none;
+  transform-origin: center;
+  user-select: none;
+}
+
 .flash-card {
   height: 100%;
   min-height: 0;
   border-width: 4px;
   padding: 12px;
-  transition: transform 160ms ease, opacity 160ms ease;
 }
 
 .speak-area {
   min-height: 0;
   margin-top: 10px;
   padding: 10px;
+  transition: transform 160ms ease, opacity 160ms ease;
 }
 
 .image-frame {
-  max-width: min(62vw, 320px);
-  max-height: min(36dvh, 320px);
+  max-width: min(78vw, 416px);
+  max-height: min(47dvh, 416px);
   border-width: 4px;
+}
+
+.image-frame > img {
+  display: block;
+  height: 100%;
+  width: 100%;
+  object-fit: cover;
 }
 
 .word-title {
@@ -109,6 +276,10 @@ select {
   margin-top: 6px;
   font-size: clamp(0.88rem, 3.6vw, 1.1rem);
   line-height: 1.15;
+}
+
+.meaning-text.hidden {
+  display: none;
 }
 
 .speech-hint {
@@ -128,12 +299,12 @@ select {
   padding: 0.55rem 0.4rem;
 }
 
-.flash-card.swipe-left {
+.speak-area.swipe-left {
   opacity: 0;
   transform: translateX(-90px) rotate(-5deg);
 }
 
-.flash-card.swipe-right {
+.speak-area.swipe-right {
   opacity: 0;
   transform: translateX(90px) rotate(5deg);
 }
@@ -202,8 +373,8 @@ select {
   }
 
   .image-frame {
-    max-width: min(56vw, 245px);
-    max-height: min(31dvh, 245px);
+    max-width: min(73vw, 320px);
+    max-height: min(40dvh, 320px);
     border-width: 3px;
     border-radius: 20px;
   }
@@ -245,8 +416,8 @@ select {
   }
 
   .image-frame {
-    max-width: min(50vw, 190px);
-    max-height: min(27dvh, 190px);
+    max-width: min(65vw, 247px);
+    max-height: min(35dvh, 247px);
   }
 
   .speech-hint {
