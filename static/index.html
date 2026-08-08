@@ -19,16 +19,41 @@
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body class="min-h-screen bg-[#fff4df] font-display text-slate-900">
-    <main class="mx-auto flex min-h-screen w-full max-w-[560px] flex-col px-4 pb-5 pt-3 sm:max-w-[720px]">
+    <main class="mx-auto flex min-h-screen w-full max-w-[560px] flex-col px-4 pb-5 pt-3 sm:max-w-[760px]">
       <header class="flex items-center justify-between gap-3 py-2">
         <div class="min-w-0">
           <p class="text-xs font-black uppercase tracking-wide text-pink-600">English For Kids</p>
           <h1 class="truncate text-xl font-black sm:text-2xl">Flashcards phát âm</h1>
         </div>
-        <div class="rounded-full bg-white px-3 py-2 text-sm font-black shadow-md">
-          <span id="positionText">1</span>/<span id="totalWords">0</span>
+        <div class="flex items-center gap-2">
+          <span id="roleBadge" class="rounded-full bg-white px-3 py-2 text-xs font-black shadow-md">Guest</span>
+          <button id="authToggleBtn" class="rounded-full bg-slate-900 px-3 py-2 text-xs font-black text-white shadow-md active:scale-95">Đăng nhập</button>
         </div>
       </header>
+
+      <section id="authPanel" class="mb-3 hidden rounded-[26px] border-4 border-white bg-white/90 p-4 shadow-xl shadow-orange-100">
+        <div id="signedOutAuth" class="space-y-3">
+          <div class="grid gap-2 sm:grid-cols-2">
+            <input id="emailInput" class="rounded-2xl border-4 border-yellow-100 px-4 py-3 font-bold outline-none focus:border-sky-300" type="email" placeholder="Email" autocomplete="email" />
+            <input id="passwordInput" class="rounded-2xl border-4 border-yellow-100 px-4 py-3 font-bold outline-none focus:border-sky-300" type="password" placeholder="Mật khẩu" autocomplete="current-password" />
+          </div>
+          <div class="grid grid-cols-3 gap-2">
+            <button id="loginBtn" class="rounded-2xl bg-emerald-500 px-3 py-3 text-sm font-black text-white active:scale-95">Đăng nhập</button>
+            <button id="signupBtn" class="rounded-2xl bg-sky-500 px-3 py-3 text-sm font-black text-white active:scale-95">Tạo tài khoản</button>
+            <button id="googleBtn" class="rounded-2xl bg-white px-3 py-3 text-sm font-black text-slate-900 shadow active:scale-95">Google</button>
+          </div>
+        </div>
+        <div id="signedInAuth" class="hidden items-center justify-between gap-3">
+          <div class="min-w-0">
+            <p class="text-xs font-black uppercase text-slate-500">Đang đăng nhập</p>
+            <p id="userEmailText" class="truncate font-black"></p>
+          </div>
+          <button id="logoutBtn" class="rounded-2xl bg-slate-900 px-4 py-3 text-sm font-black text-white active:scale-95">Đăng xuất</button>
+        </div>
+        <p id="authStatus" class="mt-3 text-center text-sm font-extrabold text-slate-500"></p>
+      </section>
+
+      <section id="accessNote" class="mb-3 rounded-2xl bg-yellow-100 px-4 py-3 text-center text-sm font-black text-yellow-900"></section>
 
       <section class="grid gap-3 sm:grid-cols-[1fr_180px] sm:items-end">
         <label class="block">
@@ -48,7 +73,9 @@
 
           <div class="relative flex items-center justify-between gap-2">
             <span id="wordCategory" class="rounded-full bg-pink-100 px-3 py-2 text-xs font-black uppercase text-pink-700">Common Words</span>
-            <button id="randomBtn" class="rounded-full bg-violet-500 px-4 py-2 text-sm font-black text-white shadow-lg shadow-violet-200 active:scale-95">Ngẫu nhiên</button>
+            <div class="rounded-full bg-white px-3 py-2 text-sm font-black shadow-md">
+              <span id="positionText">1</span>/<span id="totalWords">0</span>
+            </div>
           </div>
 
           <button id="speakArea" class="relative mt-4 flex flex-1 flex-col items-center justify-center rounded-[28px] bg-[#f7fbff] p-4 active:scale-[0.99]" aria-label="Bấm để nghe phát âm">
@@ -58,30 +85,47 @@
             <p id="speechHint" class="mt-4 rounded-full bg-emerald-100 px-4 py-2 text-sm font-black text-emerald-800">Bấm thẻ để nghe</p>
           </button>
 
-          <div class="relative mt-4 grid grid-cols-3 gap-2">
-            <button id="prevBtn" class="rounded-2xl bg-sky-500 py-3 text-sm font-black text-white shadow-lg shadow-sky-200 active:scale-95">← Trước</button>
-            <button id="repeatBtn" class="rounded-2xl bg-pink-500 py-3 text-sm font-black text-white shadow-lg shadow-pink-200 active:scale-95">Nghe lại</button>
-            <button id="nextBtn" class="rounded-2xl bg-lime-500 py-3 text-sm font-black text-white shadow-lg shadow-lime-200 active:scale-95">Tiếp →</button>
+          <div class="relative mt-4 grid grid-cols-4 gap-2">
+            <button id="prevBtn" class="rounded-2xl bg-sky-500 py-3 text-sm font-black text-white shadow-lg shadow-sky-200 active:scale-95">Trước</button>
+            <button id="repeatBtn" class="rounded-2xl bg-pink-500 py-3 text-sm font-black text-white shadow-lg shadow-pink-200 active:scale-95">Nghe</button>
+            <button id="nextBtn" class="rounded-2xl bg-lime-500 py-3 text-sm font-black text-white shadow-lg shadow-lime-200 active:scale-95">Tiếp</button>
+            <button id="randomBtn" class="rounded-2xl bg-violet-500 py-3 text-sm font-black text-white shadow-lg shadow-violet-200 active:scale-95">Đổi</button>
           </div>
         </article>
       </section>
 
-      <section class="mt-4 rounded-[26px] border-4 border-white bg-white/90 p-4 shadow-xl shadow-orange-100">
-        <button id="toggleImageTools" class="flex w-full items-center justify-between text-left font-black">
-          <span>Nhập hình cho từ này</span>
-          <span id="imageToolsIcon">+</span>
+      <section id="adminTools" class="mt-4 hidden rounded-[26px] border-4 border-white bg-white/90 p-4 shadow-xl shadow-orange-100">
+        <button id="toggleAdminTools" class="flex w-full items-center justify-between text-left font-black">
+          <span>Admin: sửa nội dung và ảnh</span>
+          <span id="adminToolsIcon">+</span>
         </button>
-        <div id="imageTools" class="mt-4 hidden space-y-3">
-          <input id="imageUrlInput" class="w-full rounded-2xl border-4 border-yellow-100 px-4 py-3 font-bold outline-none focus:border-sky-300" placeholder="Dán link ảnh https://..." />
-          <div class="grid grid-cols-2 gap-2">
-            <button id="saveImageUrlBtn" class="rounded-2xl bg-emerald-500 px-3 py-3 text-sm font-black text-white active:scale-95">Lưu link ảnh</button>
-            <a id="googleImageLink" class="rounded-2xl bg-blue-500 px-3 py-3 text-center text-sm font-black text-white active:scale-95" target="_blank" rel="noreferrer">Tìm Google</a>
+        <div id="adminPanel" class="mt-4 hidden space-y-4">
+          <div class="grid gap-2 sm:grid-cols-2">
+            <input id="editWordInput" class="rounded-2xl border-4 border-yellow-100 px-4 py-3 font-bold outline-none focus:border-sky-300" placeholder="Word" />
+            <input id="editCategoryInput" class="rounded-2xl border-4 border-yellow-100 px-4 py-3 font-bold outline-none focus:border-sky-300" placeholder="Category" />
+            <input id="editMeaningInput" class="rounded-2xl border-4 border-yellow-100 px-4 py-3 font-bold outline-none focus:border-sky-300" placeholder="Meaning" />
+            <input id="editEmojiInput" class="rounded-2xl border-4 border-yellow-100 px-4 py-3 font-bold outline-none focus:border-sky-300" placeholder="Emoji" />
+            <input id="editColorInput" class="rounded-2xl border-4 border-yellow-100 px-4 py-3 font-bold outline-none focus:border-sky-300" type="color" value="#ffd166" />
+            <input id="imageUrlInput" class="rounded-2xl border-4 border-yellow-100 px-4 py-3 font-bold outline-none focus:border-sky-300" placeholder="Image URL" />
+          </div>
+          <div class="grid grid-cols-2 gap-2 sm:grid-cols-4">
+            <button id="saveWordBtn" class="rounded-2xl bg-emerald-500 px-3 py-3 text-sm font-black text-white active:scale-95">Lưu từ</button>
+            <button id="saveImageUrlBtn" class="rounded-2xl bg-sky-500 px-3 py-3 text-sm font-black text-white active:scale-95">Lưu ảnh</button>
+            <a id="googleImageLink" class="rounded-2xl bg-blue-500 px-3 py-3 text-center text-sm font-black text-white active:scale-95" target="_blank" rel="noreferrer">Tìm ảnh</a>
+            <button id="deleteWordBtn" class="rounded-2xl bg-red-500 px-3 py-3 text-sm font-black text-white active:scale-95">Xóa từ</button>
           </div>
           <label class="block rounded-2xl border-4 border-dashed border-pink-200 bg-pink-50 p-3 text-center text-sm font-black text-pink-700">
-            Upload ảnh từ máy
+            Upload ảnh 700x700 lên Supabase
             <input id="imageFileInput" class="hidden" type="file" accept="image/*" />
           </label>
-          <button id="clearImageBtn" class="w-full rounded-2xl bg-slate-200 px-3 py-3 text-sm font-black text-slate-700 active:scale-95">Xóa hình riêng</button>
+          <div class="grid gap-2 border-t-4 border-yellow-100 pt-4 sm:grid-cols-2">
+            <input id="newWordInput" class="rounded-2xl border-4 border-yellow-100 px-4 py-3 font-bold outline-none focus:border-sky-300" placeholder="Từ mới" />
+            <input id="newCategoryInput" class="rounded-2xl border-4 border-yellow-100 px-4 py-3 font-bold outline-none focus:border-sky-300" placeholder="Category" />
+            <input id="newMeaningInput" class="rounded-2xl border-4 border-yellow-100 px-4 py-3 font-bold outline-none focus:border-sky-300" placeholder="Meaning" />
+            <input id="newEmojiInput" class="rounded-2xl border-4 border-yellow-100 px-4 py-3 font-bold outline-none focus:border-sky-300" placeholder="Emoji" />
+            <input id="newColorInput" class="rounded-2xl border-4 border-yellow-100 px-4 py-3 font-bold outline-none focus:border-sky-300" type="color" value="#ffd166" />
+            <button id="addWordBtn" class="rounded-2xl bg-violet-500 px-3 py-3 text-sm font-black text-white active:scale-95">Thêm từ</button>
+          </div>
           <p id="imageStatus" class="text-center text-sm font-extrabold text-slate-500"></p>
         </div>
       </section>

@@ -90,4 +90,46 @@ Sau khi deploy, mọi thiết bị truy cập cùng link Cloudflare Pages sẽ t
 
 ### Lưu ý bảo mật
 
-File `supabase/schema.sql` đang để public read/write để dễ dùng cho gia đình: ai có link app cũng có thể đổi ảnh từ. Nếu app public rộng rãi, nên bật Supabase Auth hoặc đổi policy trước khi chia sẻ.
+App hiện dùng Supabase Auth và RLS:
+
+- Chưa đăng nhập: xem thử 15 từ đầu.
+- Free user: học 100 từ đầu.
+- Paid user: học toàn bộ từ.
+- Admin: học toàn bộ, sửa/thêm/xóa từ, upload ảnh.
+
+Admin mặc định: `trungvietnguyen0@gmail.com`.
+
+Nếu Supabase project đã được tạo từ bản cũ, chạy thêm:
+
+```text
+supabase/auth_roles_migration.sql
+```
+
+Nếu tạo project mới từ đầu, chỉ cần chạy:
+
+```text
+supabase/schema.sql
+supabase/seed_words.sql
+```
+
+### Gán paid user thủ công
+
+1. Vào Supabase > Table Editor > `profiles`.
+2. Tìm email user.
+3. Đổi cột `role` thành `paid`.
+
+Role hợp lệ: `free`, `paid`, `admin`.
+
+### Bật Google Login
+
+1. Vào Supabase > Authentication > Providers.
+2. Bật Google provider.
+3. Tạo OAuth Client trong Google Cloud Console.
+4. Dán Client ID và Client Secret vào Supabase.
+5. Trong Google OAuth Authorized redirect URI, thêm callback URL mà Supabase hiển thị trong trang Google provider.
+
+Email/password login dùng được ngay sau khi bật Auth mặc định của Supabase.
+
+### Upload ảnh
+
+Chỉ admin thấy panel sửa nội dung. Ảnh upload sẽ được crop giữa và ép về vuông `700x700px` bằng browser canvas, sau đó upload lên Supabase Storage bucket `word-images`.

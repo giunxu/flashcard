@@ -1,4 +1,5 @@
 const supabaseSettings = window.ENGLISH_FOR_KIDS_SUPABASE || {};
+
 function normalizeSupabaseUrl(url) {
   return (url || "").replace(/\/rest\/v1\/?$/, "").replace(/\/$/, "");
 }
@@ -16,6 +17,9 @@ const state = {
   categories: [],
   category: "All",
   currentIndex: 0,
+  session: null,
+  profile: null,
+  role: "guest",
   learned: new Set(JSON.parse(localStorage.getItem("learnedWords") || "[]")),
   dragStartX: 0,
   dragCurrentX: 0,
@@ -41,16 +45,47 @@ const el = {
   random: document.querySelector("#randomBtn"),
   next: document.querySelector("#nextBtn"),
   prev: document.querySelector("#prevBtn"),
-  toggleImageTools: document.querySelector("#toggleImageTools"),
-  imageTools: document.querySelector("#imageTools"),
-  imageToolsIcon: document.querySelector("#imageToolsIcon"),
+  authToggle: document.querySelector("#authToggleBtn"),
+  authPanel: document.querySelector("#authPanel"),
+  signedOutAuth: document.querySelector("#signedOutAuth"),
+  signedInAuth: document.querySelector("#signedInAuth"),
+  email: document.querySelector("#emailInput"),
+  password: document.querySelector("#passwordInput"),
+  login: document.querySelector("#loginBtn"),
+  signup: document.querySelector("#signupBtn"),
+  google: document.querySelector("#googleBtn"),
+  logout: document.querySelector("#logoutBtn"),
+  authStatus: document.querySelector("#authStatus"),
+  userEmail: document.querySelector("#userEmailText"),
+  roleBadge: document.querySelector("#roleBadge"),
+  accessNote: document.querySelector("#accessNote"),
+  adminTools: document.querySelector("#adminTools"),
+  toggleAdminTools: document.querySelector("#toggleAdminTools"),
+  adminPanel: document.querySelector("#adminPanel"),
+  adminToolsIcon: document.querySelector("#adminToolsIcon"),
+  editWord: document.querySelector("#editWordInput"),
+  editCategory: document.querySelector("#editCategoryInput"),
+  editMeaning: document.querySelector("#editMeaningInput"),
+  editEmoji: document.querySelector("#editEmojiInput"),
+  editColor: document.querySelector("#editColorInput"),
   imageUrl: document.querySelector("#imageUrlInput"),
+  saveWord: document.querySelector("#saveWordBtn"),
   saveImageUrl: document.querySelector("#saveImageUrlBtn"),
   imageFile: document.querySelector("#imageFileInput"),
-  clearImage: document.querySelector("#clearImageBtn"),
+  deleteWord: document.querySelector("#deleteWordBtn"),
   googleImage: document.querySelector("#googleImageLink"),
   imageStatus: document.querySelector("#imageStatus"),
+  newWord: document.querySelector("#newWordInput"),
+  newCategory: document.querySelector("#newCategoryInput"),
+  newMeaning: document.querySelector("#newMeaningInput"),
+  newEmoji: document.querySelector("#newEmojiInput"),
+  newColor: document.querySelector("#newColorInput"),
+  addWord: document.querySelector("#addWordBtn"),
 };
+
+function isAdmin() {
+  return state.role === "admin";
+}
 
 function saveLearned() {
   localStorage.setItem("learnedWords", JSON.stringify([...state.learned]));
@@ -107,16 +142,38 @@ function currentWord() {
   return state.filtered[state.currentIndex] || state.words[0];
 }
 
+function slugify(value) {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
 function fromSupabaseRow(row) {
   return {
     id: row.id,
     word: row.word,
     category: row.category,
-    emoji: row.emoji,
-    meaning: row.meaning,
-    color: row.color,
+    emoji: row.emoji || "⭐",
+    meaning: row.meaning || "",
+    color: row.color || "#ffd166",
     imageUrl: row.image_url || "",
     sortOrder: row.sort_order || 0,
+  };
+}
+
+function toSupabasePayload(item) {
+  return {
+    id: item.id,
+    word: item.word,
+    category: item.category,
+    emoji: item.emoji || "⭐",
+    meaning: item.meaning || "",
+    color: item.color || "#ffd166",
+    image_url: item.imageUrl || "",
+    sort_order: item.sortOrder || 0,
+    updated_at: new Date().toISOString(),
   };
 }
 
@@ -132,6 +189,16 @@ function updateGoogleLink(item) {
   el.googleImage.href = `https://www.google.com/search?tbm=isch&q=${query}`;
 }
 
+function fillAdminFields(item) {
+  if (!item) return;
+  el.editWord.value = item.word;
+  el.editCategory.value = item.category;
+  el.editMeaning.value = item.meaning;
+  el.editEmoji.value = item.emoji || "⭐";
+  el.editColor.value = item.color || "#ffd166";
+  el.imageUrl.value = item.imageUrl || "";
+}
+
 function selectWordByIndex(index, shouldSpeak = true) {
   if (!state.filtered.length) return;
 
@@ -144,14 +211,18 @@ function selectWordByIndex(index, shouldSpeak = true) {
   el.totalWords.textContent = state.filtered.length;
   el.imageFrame.innerHTML = imageMarkup(item);
   el.imageFrame.style.setProperty("--card-color", item.color);
-  el.imageUrl.value = item.imageUrl || "";
   el.imageStatus.textContent = item.imageUrl
     ? "Đã có hình riêng cho từ này."
     : "Chưa có hình riêng, đang dùng hình minh họa mặc định.";
   updateGoogleLink(item);
+  fillAdminFields(item);
 
   el.flashCard.classList.remove("swipe-left", "swipe-right");
   if (shouldSpeak) speak(item.word);
+}
+
+function sortedCategories(words) {
+  return [...new Set(words.map((item) => item.category))].sort();
 }
 
 function renderCategories() {
@@ -183,6 +254,55 @@ function applyFilter() {
   }
 
   selectWordByIndex(0, false);
+}
+
+function updateAccessUi() {
+  const labels = {
+    guest: "Guest",
+    free: "Free",
+    paid: "Paid",
+    admin: "Admin",
+  };
+  el.roleBadge.textContent = labels[state.role] || "Guest";
+  el.authToggle.textContent = state.session ? "Tài khoản" : "Đăng nhập";
+  el.signedOutAuth.classList.toggle("hidden", Boolean(state.session));
+  el.signedInAuth.classList.toggle("hidden", !state.session);
+  el.signedInAuth.classList.toggle("flex", Boolean(state.session));
+  el.userEmail.textContent = state.session?.user?.email || "";
+  el.adminTools.classList.toggle("hidden", !isAdmin());
+
+  if (state.role === "guest") {
+    el.accessNote.textContent = "Bạn đang dùng thử 15 từ. Đăng nhập để học 100 từ miễn phí.";
+  } else if (state.role === "free") {
+    el.accessNote.textContent = "Tài khoản Free học 100 từ đầu. Admin có thể gán Paid trong Supabase.";
+  } else if (state.role === "paid") {
+    el.accessNote.textContent = "Tài khoản Paid học toàn bộ từ vựng.";
+  } else {
+    el.accessNote.textContent = "Admin có toàn quyền học, sửa, thêm, xóa từ và upload ảnh.";
+  }
+}
+
+async function refreshProfile() {
+  state.profile = null;
+  state.role = state.session ? "free" : "guest";
+
+  if (!supabaseClient || !state.session?.user) {
+    updateAccessUi();
+    return;
+  }
+
+  const { data, error } = await supabaseClient
+    .from("profiles")
+    .select("id, email, role")
+    .eq("id", state.session.user.id)
+    .maybeSingle();
+
+  if (!error && data) {
+    state.profile = data;
+    state.role = data.role || "free";
+  }
+
+  updateAccessUi();
 }
 
 async function loadWordsFromSupabase() {
@@ -225,94 +345,273 @@ async function loadWords() {
   }
 }
 
-async function updateImageUrl(item, imageUrl) {
+async function reloadWords() {
+  const words = await loadWords();
+  state.words = words.map((word) => {
+    const localImage = localStorage.getItem(`image:${word.id}`);
+    return localImage && !supabaseClient ? { ...word, imageUrl: localImage } : word;
+  });
+  state.categories = sortedCategories(state.words);
+  state.filtered = state.words;
+  renderCategories();
+  applyFilter();
+}
+
+async function updateWordInStore(item, patch) {
+  if (!isAdmin()) throw new Error("Chỉ admin được sửa nội dung.");
+  const updated = { ...item, ...patch };
+
   if (supabaseClient) {
     const { error } = await supabaseClient
       .from(supabaseSettings.table || "words")
-      .update({ image_url: imageUrl, updated_at: new Date().toISOString() })
+      .update(toSupabasePayload(updated))
       .eq("id", item.id);
     if (error) throw error;
-    return imageUrl;
+  } else if (location.hostname === "localhost" || location.hostname === "127.0.0.1") {
+    if (patch.imageUrl !== undefined) {
+      const formData = new FormData();
+      formData.append("image_url", patch.imageUrl);
+      const response = await fetch(`/api/words/${item.id}/image`, { method: "POST", body: formData });
+      if (!response.ok) throw new Error("Local API image update failed");
+    }
+  } else {
+    localStorage.setItem(`image:${item.id}`, updated.imageUrl || "");
   }
 
-  if (location.hostname === "localhost" || location.hostname === "127.0.0.1") {
-    const formData = new FormData();
-    formData.append("image_url", imageUrl);
-    const response = await fetch(`/api/words/${item.id}/image`, { method: "POST", body: formData });
-    if (!response.ok) throw new Error("Local API image update failed");
-    const result = await response.json();
-    return result.imageUrl || "";
-  }
+  Object.assign(item, updated);
+  const sourceItem = state.words.find((word) => word.id === item.id);
+  if (sourceItem) Object.assign(sourceItem, updated);
+  state.categories = sortedCategories(state.words);
+  renderCategories();
+  selectWordByIndex(state.currentIndex, false);
+  return updated;
+}
 
-  localStorage.setItem(`image:${item.id}`, imageUrl);
-  return imageUrl;
+function resizeImageToSquare(file) {
+  return new Promise((resolve, reject) => {
+    const image = new Image();
+    const reader = new FileReader();
+
+    reader.onload = () => {
+      image.onload = () => {
+        const size = Math.min(image.width, image.height);
+        const sourceX = Math.floor((image.width - size) / 2);
+        const sourceY = Math.floor((image.height - size) / 2);
+        const canvas = document.createElement("canvas");
+        canvas.width = 700;
+        canvas.height = 700;
+        const context = canvas.getContext("2d");
+        context.fillStyle = "#ffffff";
+        context.fillRect(0, 0, 700, 700);
+        context.drawImage(image, sourceX, sourceY, size, size, 0, 0, 700, 700);
+        canvas.toBlob(
+          (blob) => {
+            if (!blob) {
+              reject(new Error("Cannot resize image"));
+              return;
+            }
+            resolve(new File([blob], "word-image.webp", { type: "image/webp" }));
+          },
+          "image/webp",
+          0.86,
+        );
+      };
+      image.onerror = reject;
+      image.src = reader.result;
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
 }
 
 async function uploadImageFile(item, file) {
+  if (!isAdmin()) throw new Error("Chỉ admin được upload ảnh.");
+  const resized = await resizeImageToSquare(file);
+
   if (supabaseClient) {
-    const extension = (file.name.split(".").pop() || "jpg").toLowerCase();
-    const path = `${item.id}.${extension}`;
+    const path = `${item.id}-${Date.now()}.webp`;
     const { error: uploadError } = await supabaseClient.storage
       .from(supabaseSettings.bucket || "word-images")
-      .upload(path, file, {
+      .upload(path, resized, {
         cacheControl: "3600",
-        contentType: file.type,
+        contentType: "image/webp",
         upsert: true,
       });
     if (uploadError) throw uploadError;
 
     const { data } = supabaseClient.storage.from(supabaseSettings.bucket || "word-images").getPublicUrl(path);
-    return updateImageUrl(item, data.publicUrl);
+    return updateWordInStore(item, { imageUrl: data.publicUrl });
   }
 
-  if (location.hostname === "localhost" || location.hostname === "127.0.0.1") {
-    const formData = new FormData();
-    formData.append("image_file", file);
-    const response = await fetch(`/api/words/${item.id}/image`, { method: "POST", body: formData });
-    if (!response.ok) throw new Error("Local API image upload failed");
-    const result = await response.json();
-    return result.imageUrl || "";
-  }
-
-  throw new Error("Cần cấu hình Supabase để upload ảnh khi chạy static.");
+  throw new Error("Cần Supabase để upload ảnh vĩnh viễn.");
 }
 
-async function saveImageForCurrent(action) {
-  const item = currentWord();
-  el.imageStatus.textContent = "Đang lưu hình...";
+async function runAdminAction(message, action) {
+  if (!isAdmin()) {
+    el.imageStatus.textContent = "Chỉ admin mới được sửa nội dung.";
+    return;
+  }
 
+  el.imageStatus.textContent = message;
   try {
-    const imageUrl = await action(item);
-    item.imageUrl = imageUrl;
-    const sourceItem = state.words.find((word) => word.id === item.id);
-    if (sourceItem) sourceItem.imageUrl = imageUrl;
-    selectWordByIndex(state.currentIndex, false);
-    el.imageStatus.textContent = imageUrl ? "Đã lưu hình cho từ này." : "Đã xóa hình riêng.";
+    await action();
   } catch (error) {
     console.error(error);
-    el.imageStatus.textContent = "Chưa lưu được hình, kiểm tra cấu hình Supabase nhé.";
+    el.imageStatus.textContent = error.message || "Chưa lưu được, kiểm tra Supabase nhé.";
   }
 }
 
-function bindImageTools() {
-  el.toggleImageTools.addEventListener("click", () => {
-    const isHidden = el.imageTools.classList.toggle("hidden");
-    el.imageToolsIcon.textContent = isHidden ? "+" : "-";
+function bindAdminTools() {
+  el.toggleAdminTools.addEventListener("click", () => {
+    const isHidden = el.adminPanel.classList.toggle("hidden");
+    el.adminToolsIcon.textContent = isHidden ? "+" : "-";
+  });
+
+  el.saveWord.addEventListener("click", () => {
+    runAdminAction("Đang lưu từ...", async () => {
+      await updateWordInStore(currentWord(), {
+        word: el.editWord.value.trim(),
+        category: el.editCategory.value.trim(),
+        meaning: el.editMeaning.value.trim(),
+        emoji: el.editEmoji.value.trim() || "⭐",
+        color: el.editColor.value || "#ffd166",
+      });
+      el.imageStatus.textContent = "Đã lưu nội dung từ.";
+    });
   });
 
   el.saveImageUrl.addEventListener("click", () => {
-    saveImageForCurrent((item) => updateImageUrl(item, el.imageUrl.value.trim()));
+    runAdminAction("Đang lưu link ảnh...", async () => {
+      await updateWordInStore(currentWord(), { imageUrl: el.imageUrl.value.trim() });
+      el.imageStatus.textContent = "Đã lưu link ảnh.";
+    });
   });
 
   el.imageFile.addEventListener("change", () => {
     if (!el.imageFile.files.length) return;
-    saveImageForCurrent((item) => uploadImageFile(item, el.imageFile.files[0]));
+    runAdminAction("Đang ép ảnh về 700x700 và upload...", async () => {
+      await uploadImageFile(currentWord(), el.imageFile.files[0]);
+      el.imageStatus.textContent = "Đã upload ảnh 700x700.";
+    });
     el.imageFile.value = "";
   });
 
-  el.clearImage.addEventListener("click", () => {
-    saveImageForCurrent((item) => updateImageUrl(item, ""));
+  el.deleteWord.addEventListener("click", () => {
+    runAdminAction("Đang xóa từ...", async () => {
+      const item = currentWord();
+      if (!confirm(`Xóa từ "${item.word}"?`)) {
+        el.imageStatus.textContent = "Đã hủy xóa.";
+        return;
+      }
+      if (supabaseClient) {
+        const { error } = await supabaseClient.from(supabaseSettings.table || "words").delete().eq("id", item.id);
+        if (error) throw error;
+      }
+      state.words = state.words.filter((word) => word.id !== item.id);
+      state.filtered = state.filtered.filter((word) => word.id !== item.id);
+      state.currentIndex = Math.min(state.currentIndex, Math.max(0, state.filtered.length - 1));
+      state.categories = sortedCategories(state.words);
+      renderCategories();
+      selectWordByIndex(state.currentIndex, false);
+      el.imageStatus.textContent = "Đã xóa từ.";
+    });
   });
+
+  el.addWord.addEventListener("click", () => {
+    runAdminAction("Đang thêm từ...", async () => {
+      const word = el.newWord.value.trim().toLowerCase();
+      if (!word) throw new Error("Nhập từ mới trước đã.");
+      const category = el.newCategory.value.trim() || "Common Words";
+      const id = `${slugify(category)}-${slugify(word)}`;
+      const item = {
+        id,
+        word,
+        category,
+        meaning: el.newMeaning.value.trim() || "từ mới",
+        emoji: el.newEmoji.value.trim() || "⭐",
+        color: el.newColor.value || "#ffd166",
+        imageUrl: "",
+        sortOrder: state.words.length ? Math.max(...state.words.map((entry) => entry.sortOrder || 0)) + 1 : 0,
+      };
+
+      if (supabaseClient) {
+        const { error } = await supabaseClient.from(supabaseSettings.table || "words").insert(toSupabasePayload(item));
+        if (error) throw error;
+      }
+      state.words.push(item);
+      state.categories = sortedCategories(state.words);
+      renderCategories();
+      applyFilter();
+      state.currentIndex = state.filtered.findIndex((entry) => entry.id === item.id);
+      selectWordByIndex(Math.max(0, state.currentIndex), false);
+      el.newWord.value = "";
+      el.newMeaning.value = "";
+      el.newEmoji.value = "";
+      el.imageStatus.textContent = "Đã thêm từ mới.";
+    });
+  });
+}
+
+async function handleLogin() {
+  if (!supabaseClient) {
+    el.authStatus.textContent = "Chưa cấu hình Supabase.";
+    return;
+  }
+  el.authStatus.textContent = "Đang đăng nhập...";
+  const { error } = await supabaseClient.auth.signInWithPassword({
+    email: el.email.value.trim(),
+    password: el.password.value,
+  });
+  el.authStatus.textContent = error ? error.message : "Đã đăng nhập.";
+}
+
+async function handleSignup() {
+  if (!supabaseClient) {
+    el.authStatus.textContent = "Chưa cấu hình Supabase.";
+    return;
+  }
+  el.authStatus.textContent = "Đang tạo tài khoản...";
+  const { error } = await supabaseClient.auth.signUp({
+    email: el.email.value.trim(),
+    password: el.password.value,
+  });
+  el.authStatus.textContent = error ? error.message : "Đã tạo tài khoản. Kiểm tra email nếu Supabase yêu cầu xác nhận.";
+}
+
+async function handleGoogleLogin() {
+  if (!supabaseClient) {
+    el.authStatus.textContent = "Chưa cấu hình Supabase.";
+    return;
+  }
+  await supabaseClient.auth.signInWithOAuth({
+    provider: "google",
+    options: {
+      redirectTo: window.location.origin + window.location.pathname,
+    },
+  });
+}
+
+async function handleLogout() {
+  if (!supabaseClient) return;
+  await supabaseClient.auth.signOut();
+}
+
+function bindAuth() {
+  el.authToggle.addEventListener("click", () => {
+    el.authPanel.classList.toggle("hidden");
+  });
+  el.login.addEventListener("click", handleLogin);
+  el.signup.addEventListener("click", handleSignup);
+  el.google.addEventListener("click", handleGoogleLogin);
+  el.logout.addEventListener("click", handleLogout);
+
+  if (supabaseClient) {
+    supabaseClient.auth.onAuthStateChange(async (_event, session) => {
+      state.session = session;
+      await refreshProfile();
+      await reloadWords();
+    });
+  }
 }
 
 function bindSwipe() {
@@ -360,6 +659,8 @@ function bindEvents() {
     refreshVoices();
     window.speechSynthesis.onvoiceschanged = refreshVoices;
   }
+  bindAuth();
+  bindAdminTools();
   el.search.addEventListener("input", applyFilter);
   el.category.addEventListener("change", () => {
     state.category = el.category.value;
@@ -371,24 +672,16 @@ function bindEvents() {
   el.prev.addEventListener("click", () => selectWordByIndex(state.currentIndex - 1));
   el.random.addEventListener("click", () => selectWordByIndex(Math.floor(Math.random() * state.filtered.length)));
   bindSwipe();
-  bindImageTools();
 }
 
 async function init() {
-  const words = await loadWords();
-  state.words = words.map((word) => {
-    const localImage = localStorage.getItem(`image:${word.id}`);
-    return localImage ? { ...word, imageUrl: localImage } : word;
-  });
-  state.filtered = state.words;
-  state.categories = sortedCategories(state.words);
-  renderCategories();
-  selectWordByIndex(0, false);
+  if (supabaseClient) {
+    const { data } = await supabaseClient.auth.getSession();
+    state.session = data.session;
+  }
+  await refreshProfile();
+  await reloadWords();
   bindEvents();
-}
-
-function sortedCategories(words) {
-  return [...new Set(words.map((item) => item.category))].sort();
 }
 
 init();

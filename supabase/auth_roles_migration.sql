@@ -1,15 +1,3 @@
-create table if not exists public.words (
-  id text primary key,
-  word text not null,
-  category text not null,
-  emoji text not null default '',
-  meaning text not null default '',
-  color text not null default '#ffd166',
-  image_url text not null default '',
-  sort_order integer not null default 0,
-  updated_at timestamptz not null default now()
-);
-
 create table if not exists public.profiles (
   id uuid primary key references auth.users(id) on delete cascade,
   email text unique not null,
@@ -18,10 +6,7 @@ create table if not exists public.profiles (
   updated_at timestamptz not null default now()
 );
 
-create index if not exists words_sort_order_idx on public.words (sort_order);
-create index if not exists words_category_idx on public.words (category);
 create index if not exists profiles_role_idx on public.profiles (role);
-
 create schema if not exists private;
 
 create or replace function private.current_user_role()
@@ -157,6 +142,9 @@ drop policy if exists "word_images_public_read" on storage.objects;
 drop policy if exists "word_images_public_insert" on storage.objects;
 drop policy if exists "word_images_public_update" on storage.objects;
 drop policy if exists "word_images_public_delete" on storage.objects;
+drop policy if exists "word_images_admin_insert" on storage.objects;
+drop policy if exists "word_images_admin_update" on storage.objects;
+drop policy if exists "word_images_admin_delete" on storage.objects;
 
 create policy "word_images_public_read"
 on storage.objects for select
