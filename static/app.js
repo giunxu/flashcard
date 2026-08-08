@@ -8,7 +8,14 @@ supabaseSettings.url = normalizeSupabaseUrl(supabaseSettings.url);
 const hasSupabaseConfig = Boolean(supabaseSettings.url && supabaseSettings.anonKey);
 const supabaseClient =
   hasSupabaseConfig && window.supabase
-    ? window.supabase.createClient(supabaseSettings.url, supabaseSettings.anonKey)
+    ? window.supabase.createClient(supabaseSettings.url, supabaseSettings.anonKey, {
+        auth: {
+          persistSession: true,
+          autoRefreshToken: true,
+          detectSessionInUrl: true,
+          storageKey: "english-for-kids-auth",
+        },
+      })
     : null;
 
 function readStoredJson(key, fallback) {
@@ -33,8 +40,8 @@ const state = {
   session: null,
   profile: null,
   role: "guest",
-  learned: new Set(readStoredJson("learnedWords", [])),
-  studySeconds: readStoredNumber("studySeconds", 0),
+  learned: new Set(),
+  studySeconds: 0,
   studyTimer: null,
   quotaLocked: false,
   lastViewedWordId: "",
@@ -66,6 +73,7 @@ const state = {
   editCrop: null,
   newCrop: null,
   adminMode: false,
+  passwordResetMode: false,
 };
 
 const el = {
@@ -93,16 +101,27 @@ const el = {
   statsPie: document.querySelector("#statsPie"),
   statsLegend: document.querySelector("#statsLegend"),
   statsEmpty: document.querySelector("#statsEmpty"),
+  donateToggle: document.querySelector("#donateToggleBtn"),
+  donatePanel: document.querySelector("#donatePanel"),
+  donateCard: document.querySelector("#donateCard"),
+  donateClose: document.querySelector("#donateCloseBtn"),
   authToggle: document.querySelector("#authToggleBtn"),
   adminToggle: document.querySelector("#adminToggleBtn"),
   authPanel: document.querySelector("#authPanel"),
   signedOutAuth: document.querySelector("#signedOutAuth"),
   signedInAuth: document.querySelector("#signedInAuth"),
+  passwordResetAuth: document.querySelector("#passwordResetAuth"),
   email: document.querySelector("#emailInput"),
   password: document.querySelector("#passwordInput"),
+  rememberSession: document.querySelector("#rememberSessionInput"),
+  newPassword: document.querySelector("#newPasswordInput"),
+  confirmPassword: document.querySelector("#confirmPasswordInput"),
   login: document.querySelector("#loginBtn"),
   signup: document.querySelector("#signupBtn"),
   google: document.querySelector("#googleBtn"),
+  forgotPassword: document.querySelector("#forgotPasswordBtn"),
+  updatePassword: document.querySelector("#updatePasswordBtn"),
+  backToLogin: document.querySelector("#backToLoginBtn"),
   logout: document.querySelector("#logoutBtn"),
   authStatus: document.querySelector("#authStatus"),
   userEmail: document.querySelector("#userEmailText"),
@@ -199,6 +218,23 @@ function showToast(message, type = "info") {
   }, 5000);
 }
 
+function loadRememberedAuth() {
+  const rememberedEmail = localStorage.getItem("rememberedEmail") || "";
+  const rememberDevice = localStorage.getItem("rememberDevice");
+  el.rememberSession.checked = rememberDevice !== "false";
+  if (rememberedEmail) el.email.value = rememberedEmail;
+}
+
+function saveRememberedAuth(email) {
+  if (el.rememberSession.checked) {
+    localStorage.setItem("rememberDevice", "true");
+    localStorage.setItem("rememberedEmail", email);
+    return;
+  }
+  localStorage.setItem("rememberDevice", "false");
+  localStorage.removeItem("rememberedEmail");
+}
+
 function currentEditableWord() {
   return state.words.find((word) => word.id === state.editWordId) || currentWord();
 }
@@ -222,6 +258,37 @@ function viewerKey() {
 
 function dailyViewsKey() {
   return `dailyViews:${viewerKey()}:${todayKey()}`;
+}
+
+function scopedStorageKey(name) {
+  return `${name}:${viewerKey()}`;
+}
+
+function migrateLegacyStudyData() {
+  const key = viewerKey();
+  if (key === "guest" || localStorage.getItem(`studyDataMigrated:${key}`) === "true") return;
+
+  if (!localStorage.getItem(scopedStorageKey("learnedWords")) && localStorage.getItem("learnedWords")) {
+    localStorage.setItem(scopedStorageKey("learnedWords"), localStorage.getItem("learnedWords"));
+  }
+  if (!localStorage.getItem(scopedStorageKey("studySeconds")) && localStorage.getItem("studySeconds")) {
+    localStorage.setItem(scopedStorageKey("studySeconds"), localStorage.getItem("studySeconds"));
+  }
+  if (!localStorage.getItem(scopedStorageKey("studyProgress")) && localStorage.getItem("studyProgress")) {
+    localStorage.setItem(scopedStorageKey("studyProgress"), localStorage.getItem("studyProgress"));
+  }
+
+  localStorage.setItem(`studyDataMigrated:${key}`, "true");
+}
+
+function loadStudyDataForViewer() {
+  migrateLegacyStudyData();
+  state.learned = new Set(readStoredJson(scopedStorageKey("learnedWords"), []));
+  state.studySeconds = readStoredNumber(scopedStorageKey("studySeconds"), 0);
+  state.lastViewedWordId = "";
+  state.lastViewedDay = "";
+  state.quotaLocked = isDailyQuotaLocked();
+  renderStats();
 }
 
 function dailyViewLimit() {
@@ -274,21 +341,21 @@ function renderDailyQuotaLock() {
 }
 
 function saveLearned() {
-  localStorage.setItem("learnedWords", JSON.stringify([...state.learned]));
+  localStorage.setItem(scopedStorageKey("learnedWords"), JSON.stringify([...state.learned]));
 }
 
 function saveStudySeconds() {
-  localStorage.setItem("studySeconds", String(Math.max(0, Math.floor(state.studySeconds))));
+  localStorage.setItem(scopedStorageKey("studySeconds"), String(Math.max(0, Math.floor(state.studySeconds))));
 }
 
 function readStudyProgress() {
-  return readStoredJson("studyProgress", {});
+  return readStoredJson(scopedStorageKey("studyProgress"), {});
 }
 
 function saveStudyProgress(item) {
   if (!item?.id) return;
   localStorage.setItem(
-    "studyProgress",
+    scopedStorageKey("studyProgress"),
     JSON.stringify({
       wordId: item.id,
       category: state.category,
@@ -665,7 +732,13 @@ function updateCropView(kind) {
   const parts = cropElements(kind);
   const crop = state[parts.key];
   if (!crop) return;
-  parts.image.style.transform = `translate(calc(-50% + ${crop.offsetX}px), calc(-50% + ${crop.offsetY}px)) scale(${crop.zoom})`;
+  const frameSize = parts.frame.getBoundingClientRect().width || 260;
+  const baseScale = Math.min(frameSize / crop.image.naturalWidth, frameSize / crop.image.naturalHeight);
+  const displayWidth = crop.image.naturalWidth * baseScale * crop.zoom;
+  const displayHeight = crop.image.naturalHeight * baseScale * crop.zoom;
+  parts.image.style.width = `${displayWidth}px`;
+  parts.image.style.height = `${displayHeight}px`;
+  parts.image.style.transform = `translate(calc(-50% + ${crop.offsetX}px), calc(-50% + ${crop.offsetY}px))`;
   parts.zoom.value = crop.zoom;
 }
 
@@ -728,8 +801,8 @@ async function cropToSquareFile(kind) {
   const size = 700;
   const rect = parts.frame.getBoundingClientRect();
   const offsetScale = size / Math.max(1, rect.width);
-  const coverScale = Math.max(size / crop.image.naturalWidth, size / crop.image.naturalHeight);
-  const scale = coverScale * crop.zoom;
+  const fitScale = Math.min(size / crop.image.naturalWidth, size / crop.image.naturalHeight);
+  const scale = fitScale * crop.zoom;
   const drawWidth = crop.image.naturalWidth * scale;
   const drawHeight = crop.image.naturalHeight * scale;
   const drawX = (size - drawWidth) / 2 + crop.offsetX * offsetScale;
@@ -838,8 +911,9 @@ function updateAccessUi() {
   };
   el.roleBadge.textContent = labels[state.role] || "Guest";
   el.authToggle.textContent = state.session ? "Account" : "Login";
-  el.signedOutAuth.classList.toggle("hidden", Boolean(state.session));
-  el.signedInAuth.classList.toggle("hidden", !state.session);
+  el.passwordResetAuth.classList.toggle("hidden", !state.passwordResetMode);
+  el.signedOutAuth.classList.toggle("hidden", state.passwordResetMode || Boolean(state.session));
+  el.signedInAuth.classList.toggle("hidden", state.passwordResetMode || !state.session);
   el.userEmail.textContent = state.session?.user?.email || "";
   el.adminToggle.classList.toggle("hidden", !isAdmin());
   if (!isAdmin()) state.adminMode = false;
@@ -902,6 +976,16 @@ async function loadWordsFromSupabase() {
   return data.map(fromSupabaseRow);
 }
 
+function mergeWordsById(baseWords, overrideWords) {
+  const overrides = new Map(overrideWords.map((item) => [item.id, item]));
+  const merged = baseWords.map((item) => ({ ...item, ...(overrides.get(item.id) || {}) }));
+  const baseIds = new Set(baseWords.map((item) => item.id));
+  overrideWords.forEach((item) => {
+    if (!baseIds.has(item.id)) merged.push(item);
+  });
+  return merged.sort((left, right) => (left.sortOrder || 0) - (right.sortOrder || 0));
+}
+
 async function loadWordsFromStaticJson() {
   const response = await fetch("data/words.json");
   if (!response.ok) throw new Error("Cannot load static words.json");
@@ -919,7 +1003,13 @@ async function loadWordsFromLocalApi() {
 async function loadWords() {
   if (supabaseClient) {
     try {
-      return await loadWordsFromSupabase();
+      const supabaseWords = await loadWordsFromSupabase();
+      const staticWords = await loadWordsFromStaticJson();
+      if (supabaseWords.length < staticWords.length) {
+        console.warn("Supabase returned a limited word list. Merging with local static words until RLS is migrated.");
+        return mergeWordsById(staticWords, supabaseWords);
+      }
+      return supabaseWords;
     } catch (error) {
       console.warn("Supabase load failed, falling back to local data.", error);
     }
@@ -1477,11 +1567,17 @@ async function handleLogin() {
     return;
   }
   el.authStatus.textContent = "Logging in...";
+  const email = el.email.value.trim();
   const { error } = await supabaseClient.auth.signInWithPassword({
-    email: el.email.value.trim(),
+    email,
     password: el.password.value,
   });
-  el.authStatus.textContent = error ? error.message : "Logged in.";
+  if (error) {
+    el.authStatus.textContent = error.message;
+    return;
+  }
+  saveRememberedAuth(email);
+  el.authStatus.textContent = "Logged in. Session saved on this device.";
 }
 
 async function handleSignup() {
@@ -1490,14 +1586,66 @@ async function handleSignup() {
     return;
   }
   el.authStatus.textContent = "Creating account...";
+  const email = el.email.value.trim();
   const { error } = await supabaseClient.auth.signUp({
-    email: el.email.value.trim(),
+    email,
     password: el.password.value,
     options: {
       emailRedirectTo: `${window.location.origin}${window.location.pathname}?v=email-confirmed`,
     },
   });
-  el.authStatus.textContent = error ? error.message : "Account created. Check your email if Supabase asks for confirmation.";
+  if (error) {
+    el.authStatus.textContent = error.message;
+    return;
+  }
+  saveRememberedAuth(email);
+  el.authStatus.textContent = "Account created. Check your email if Supabase asks for confirmation.";
+}
+
+async function handleForgotPassword() {
+  if (!supabaseClient) {
+    el.authStatus.textContent = "Supabase is not configured.";
+    return;
+  }
+  const email = el.email.value.trim();
+  if (!email) {
+    el.authStatus.textContent = "Enter your email first.";
+    return;
+  }
+  el.authStatus.textContent = "Sending password reset email...";
+  const { error } = await supabaseClient.auth.resetPasswordForEmail(email, {
+    redirectTo: `${window.location.origin}${window.location.pathname}?v=password-reset`,
+  });
+  el.authStatus.textContent = error ? error.message : "Password reset email sent. Check your inbox.";
+}
+
+async function handleUpdatePassword() {
+  if (!supabaseClient) {
+    el.authStatus.textContent = "Supabase is not configured.";
+    return;
+  }
+  const password = el.newPassword.value;
+  const confirmPassword = el.confirmPassword.value;
+  if (password.length < 6) {
+    el.authStatus.textContent = "Password must be at least 6 characters.";
+    return;
+  }
+  if (password !== confirmPassword) {
+    el.authStatus.textContent = "Passwords do not match.";
+    return;
+  }
+  el.authStatus.textContent = "Updating password...";
+  const { error } = await supabaseClient.auth.updateUser({ password });
+  if (error) {
+    el.authStatus.textContent = error.message;
+    return;
+  }
+  state.passwordResetMode = false;
+  el.newPassword.value = "";
+  el.confirmPassword.value = "";
+  updateAccessUi();
+  el.authStatus.textContent = "Password updated. You can use the new password from now on.";
+  showToast("Password updated.", "success");
 }
 
 async function handleGoogleLogin() {
@@ -1516,12 +1664,22 @@ async function handleGoogleLogin() {
 async function handleLogout() {
   if (!supabaseClient) return;
   await supabaseClient.auth.signOut();
+  state.session = null;
+  state.profile = null;
+  state.role = "guest";
+  state.passwordResetMode = false;
+  loadStudyDataForViewer();
+  updateAccessUi();
+  await reloadWords();
+  el.password.value = "";
+  showToast("Logged out. Guest statistics loaded.", "info");
 }
 
 function bindAuth() {
   el.authToggle.addEventListener("click", (event) => {
     event.stopPropagation();
     el.statsPanel.classList.add("hidden");
+    el.donatePanel.classList.add("hidden");
     el.authPanel.classList.toggle("hidden");
   });
   el.authPanel.addEventListener("click", (event) => {
@@ -1533,12 +1691,31 @@ function bindAuth() {
   el.login.addEventListener("click", handleLogin);
   el.signup.addEventListener("click", handleSignup);
   el.google.addEventListener("click", handleGoogleLogin);
+  el.forgotPassword.addEventListener("click", handleForgotPassword);
+  el.updatePassword.addEventListener("click", handleUpdatePassword);
+  el.backToLogin.addEventListener("click", () => {
+    state.passwordResetMode = false;
+    updateAccessUi();
+    el.authStatus.textContent = "";
+  });
+  el.rememberSession.addEventListener("change", () => {
+    if (!el.rememberSession.checked) {
+      localStorage.setItem("rememberDevice", "false");
+      localStorage.removeItem("rememberedEmail");
+    }
+  });
   el.logout.addEventListener("click", handleLogout);
 
   if (supabaseClient) {
     supabaseClient.auth.onAuthStateChange(async (_event, session) => {
       state.session = session;
+      if (_event === "PASSWORD_RECOVERY") {
+        state.passwordResetMode = true;
+        el.authPanel.classList.remove("hidden");
+        el.authStatus.textContent = "Enter a new password for your account.";
+      }
       await refreshProfile();
+      loadStudyDataForViewer();
       await reloadWords();
     });
   }
@@ -1549,6 +1726,7 @@ function bindStats() {
     event.stopPropagation();
     renderStats();
     el.authPanel.classList.add("hidden");
+    el.donatePanel.classList.add("hidden");
     el.statsPanel.classList.toggle("hidden");
   });
   el.statsPanel.addEventListener("click", (event) => {
@@ -1559,14 +1737,48 @@ function bindStats() {
   });
 }
 
+function bindDonate() {
+  el.donateToggle.addEventListener("click", (event) => {
+    event.stopPropagation();
+    el.authPanel.classList.add("hidden");
+    el.statsPanel.classList.add("hidden");
+    el.donatePanel.classList.toggle("hidden");
+  });
+  el.donateClose.addEventListener("click", (event) => {
+    event.stopPropagation();
+    el.donatePanel.classList.add("hidden");
+  });
+  el.donateCard.addEventListener("click", (event) => {
+    event.stopPropagation();
+  });
+  el.donatePanel.addEventListener("click", () => {
+    el.donatePanel.classList.add("hidden");
+  });
+  document.addEventListener("click", () => {
+    el.donatePanel.classList.add("hidden");
+  });
+}
+
 function showAuthCallbackMessage() {
   const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ""));
   const searchParams = new URLSearchParams(window.location.search);
   const error = hashParams.get("error_description") || searchParams.get("error_description");
+  const isPasswordReset =
+    searchParams.get("v") === "password-reset" ||
+    hashParams.get("type") === "recovery" ||
+    searchParams.get("type") === "recovery";
 
   if (error) {
     el.authPanel.classList.remove("hidden");
     el.authStatus.textContent = decodeURIComponent(error.replace(/\+/g, " "));
+    return;
+  }
+
+  if (isPasswordReset) {
+    state.passwordResetMode = true;
+    updateAccessUi();
+    el.authPanel.classList.remove("hidden");
+    el.authStatus.textContent = "Enter a new password for your account.";
     return;
   }
 
@@ -1631,6 +1843,7 @@ function bindEvents() {
   }
   bindAuth();
   bindStats();
+  bindDonate();
   bindAdminTools();
   el.search.addEventListener("input", applyFilter);
   el.category.addEventListener("change", () => {
@@ -1652,6 +1865,7 @@ function bindEvents() {
 }
 
 async function init() {
+  loadRememberedAuth();
   if (supabaseClient) {
     const { data } = await supabaseClient.auth.getSession();
     state.session = data.session;
@@ -1659,6 +1873,7 @@ async function init() {
   showAuthCallbackMessage();
   await loadRoleLimits();
   await refreshProfile();
+  loadStudyDataForViewer();
   await loadSpeechSettings();
   await reloadWords();
   bindEvents();
