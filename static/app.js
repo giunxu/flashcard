@@ -71,6 +71,7 @@ const state = {
     paid: 0,
     admin: 0,
   },
+  visibleCategories: [],
   users: [],
   editWordId: "",
   adminTab: "voice",
@@ -140,6 +141,7 @@ const el = {
   adminTabVoice: document.querySelector("#adminTabVoice"),
   adminTabWords: document.querySelector("#adminTabWords"),
   adminTabAdd: document.querySelector("#adminTabAdd"),
+  adminTabDisplay: document.querySelector("#adminTabDisplay"),
   adminTabUsers: document.querySelector("#adminTabUsers"),
   adminWordSearch: document.querySelector("#adminWordSearchInput"),
   adminWordCategory: document.querySelector("#adminWordCategorySelect"),
@@ -192,6 +194,9 @@ const el = {
   limitFree: document.querySelector("#limitFreeInput"),
   limitPaid: document.querySelector("#limitPaidInput"),
   saveRoleLimits: document.querySelector("#saveRoleLimitsBtn"),
+  categoryVisibilityList: document.querySelector("#categoryVisibilityList"),
+  categoryVisibilitySummary: document.querySelector("#categoryVisibilitySummary"),
+  saveCategoryVisibility: document.querySelector("#saveCategoryVisibilityBtn"),
   toast: document.querySelector("#toastNotification"),
 };
 
@@ -378,8 +383,12 @@ function formatStudyDuration(totalSeconds) {
   return `${seconds}s`;
 }
 
+function visibleWordItems() {
+  return state.words.filter((item) => isCategoryVisible(item.category));
+}
+
 function learnedWordItems() {
-  return state.words.filter((item) => state.learned.has(item.id) || state.learned.has(item.word));
+  return visibleWordItems().filter((item) => state.learned.has(item.id) || state.learned.has(item.word));
 }
 
 function learnedCategoryStats() {
@@ -400,7 +409,7 @@ function renderStats() {
   const chartColors = ["#ec4899", "#0ea5e9", "#84cc16", "#f59e0b", "#8b5cf6", "#14b8a6", "#f43f5e", "#6366f1"];
 
   el.statsLearnedCount.textContent = totalLearned;
-  el.statsTotalWords.textContent = state.words.length;
+  el.statsTotalWords.textContent = visibleWordItems().length;
   el.statsStudyTime.textContent = formatStudyDuration(state.studySeconds);
   el.statsEmpty.classList.toggle("hidden", totalLearned > 0);
 
@@ -642,25 +651,86 @@ function sortedCategories(words) {
   return [...new Set(words.map((item) => item.category))].sort();
 }
 
+function applyCategoryVisibility(value = {}) {
+  const categories = Array.isArray(value.categories) ? value.categories : [];
+  state.visibleCategories = [...new Set(categories.map(String).filter(Boolean))];
+}
+
+function categoryVisibilitySet() {
+  const source = state.visibleCategories.length ? state.visibleCategories : state.categories;
+  return new Set(source);
+}
+
+function visibleStudyCategories() {
+  const visible = categoryVisibilitySet();
+  return state.categories.filter((category) => visible.has(category));
+}
+
+function isCategoryVisible(category) {
+  return categoryVisibilitySet().has(category);
+}
+
+function updateCategoryVisibilitySummary(count = visibleStudyCategories().length) {
+  if (!el.categoryVisibilitySummary) return;
+  const total = state.categories.length;
+  el.categoryVisibilitySummary.textContent = `${count}/${total} categories visible to users`;
+}
+
+function renderCategoryVisibilityControls() {
+  if (!el.categoryVisibilityList) return;
+  const visible = categoryVisibilitySet();
+  if (!state.categories.length) {
+    el.categoryVisibilityList.innerHTML = `<p class="text-sm font-black text-slate-500">No categories yet.</p>`;
+    updateCategoryVisibilitySummary(0);
+    return;
+  }
+
+  el.categoryVisibilityList.innerHTML = state.categories
+    .map((category) => {
+      const checked = visible.has(category) ? "checked" : "";
+      return `
+        <label class="category-visibility-item flex items-center gap-3 rounded-2xl bg-white p-3 font-black text-slate-700 shadow-sm">
+          <input class="category-visibility-checkbox h-5 w-5 accent-sky-500" type="checkbox" value="${escapeHtml(category)}" ${checked} />
+          <span class="min-w-0 flex-1 truncate">${escapeHtml(category)}</span>
+        </label>
+      `;
+    })
+    .join("");
+  updateCategoryVisibilitySummary(visibleStudyCategories().length);
+}
+
 function renderCategories() {
-  const categoryOptions = state.categories
+  const allCategoryOptions = state.categories
     .map((category) => {
       return `<option value="${escapeHtml(category)}">${escapeHtml(category)}</option>`;
     })
     .join("");
-  const options = `<option value="All">All</option>${categoryOptions}`;
+  const studyCategories = visibleStudyCategories();
+  if (state.category !== "All" && !studyCategories.includes(state.category)) {
+    state.category = "All";
+  }
+  if (state.adminWordCategory !== "All" && !state.categories.includes(state.adminWordCategory)) {
+    state.adminWordCategory = "All";
+  }
+  const studyCategoryOptions = studyCategories
+    .map((category) => {
+      return `<option value="${escapeHtml(category)}">${escapeHtml(category)}</option>`;
+    })
+    .join("");
+  const options = `<option value="All">All</option>${studyCategoryOptions}`;
   el.category.innerHTML = options;
   el.category.value = state.category;
   if (el.adminWordCategory) {
-    el.adminWordCategory.innerHTML = options;
+    el.adminWordCategory.innerHTML = `<option value="All">All</option>${allCategoryOptions}`;
     el.adminWordCategory.value = state.adminWordCategory;
   }
   if (el.editCategory) {
-    el.editCategory.innerHTML = categoryOptions;
+    el.editCategory.innerHTML = allCategoryOptions;
   }
   if (el.newCategorySelect) {
-    el.newCategorySelect.innerHTML = categoryOptions || `<option value="Animals">Animals</option>`;
+    el.newCategorySelect.innerHTML = allCategoryOptions || `<option value="Animals">Animals</option>`;
   }
+  renderCategoryVisibilityControls();
 }
 
 function setAdminTab(tab) {
@@ -672,8 +742,10 @@ function setAdminTab(tab) {
   el.adminTabVoice.classList.toggle("hidden", tab !== "voice");
   el.adminTabWords.classList.toggle("hidden", tab !== "words");
   el.adminTabAdd.classList.toggle("hidden", tab !== "add");
+  el.adminTabDisplay.classList.toggle("hidden", tab !== "display");
   el.adminTabUsers.classList.toggle("hidden", tab !== "users");
   if (tab === "words") renderAdminWordList();
+  if (tab === "display") renderCategoryVisibilityControls();
   if (tab === "users") loadUsers();
 }
 
@@ -886,7 +958,7 @@ function renderAdminWordList() {
 function applyFilter(preferredWordId = "") {
   state.filtered = state.words.filter((item) => {
     const matchesCategory = state.category === "All" || item.category === state.category;
-    return matchesCategory;
+    return isCategoryVisible(item.category) && matchesCategory;
   });
 
   if (!state.filtered.length) {
@@ -1147,6 +1219,29 @@ async function loadRoleLimits() {
   }
 }
 
+async function loadCategoryVisibility() {
+  if (supabaseClient) {
+    try {
+      const { data, error } = await supabaseClient
+        .from("app_settings")
+        .select("value")
+        .eq("key", "visible_categories")
+        .maybeSingle();
+      if (error) throw error;
+      applyCategoryVisibility(data?.value || {});
+      return;
+    } catch (error) {
+      console.warn("Category visibility load failed, using local defaults.", error);
+    }
+  }
+
+  try {
+    applyCategoryVisibility(JSON.parse(localStorage.getItem("visibleCategories") || "{}"));
+  } catch {
+    applyCategoryVisibility();
+  }
+}
+
 async function reloadWords() {
   const words = (await loadWords()).filter(isVisibleStudyWord);
   state.words = words.map((word) => {
@@ -1377,6 +1472,40 @@ async function saveRoleLimits() {
   showToast("Daily limits saved.", "success");
 }
 
+async function saveCategoryVisibility() {
+  if (!isAdmin()) return;
+  const selected = [...el.categoryVisibilityList.querySelectorAll(".category-visibility-checkbox:checked")].map(
+    (checkbox) => checkbox.value,
+  );
+  if (!selected.length) {
+    showToast("Choose at least one category.", "error");
+    return;
+  }
+
+  applyCategoryVisibility({ categories: selected });
+  showToast("Saving visible categories...", "info");
+
+  if (supabaseClient) {
+    const { error } = await supabaseClient.from("app_settings").upsert({
+      key: "visible_categories",
+      value: { categories: state.visibleCategories },
+      updated_at: new Date().toISOString(),
+    });
+    if (error) {
+      showToast(error.message || "Could not save visible categories.", "error");
+      return;
+    }
+  } else {
+    localStorage.setItem("visibleCategories", JSON.stringify({ categories: state.visibleCategories }));
+  }
+
+  const current = currentWord();
+  renderCategories();
+  applyFilter(current?.id || "");
+  renderStats();
+  showToast("Visible categories saved.", "success");
+}
+
 async function saveEditedImage() {
   if (state.editCrop) {
     const cropped = await cropToSquareFile("edit");
@@ -1427,6 +1556,11 @@ function bindAdminTools() {
     updateUserRole(select.dataset.userId, select.value);
   });
   el.saveRoleLimits.addEventListener("click", saveRoleLimits);
+  el.categoryVisibilityList.addEventListener("change", () => {
+    const checked = el.categoryVisibilityList.querySelectorAll(".category-visibility-checkbox:checked").length;
+    updateCategoryVisibilitySummary(checked);
+  });
+  el.saveCategoryVisibility.addEventListener("click", saveCategoryVisibility);
   el.cancelEditCrop.addEventListener("click", () => {
     clearCrop("edit");
     showToast("Image crop cancelled.", "info");
@@ -1919,6 +2053,7 @@ async function init() {
   }
   showAuthCallbackMessage();
   await loadRoleLimits();
+  await loadCategoryVisibility();
   await refreshProfile();
   loadStudyDataForViewer();
   await loadSpeechSettings();

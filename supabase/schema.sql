@@ -224,6 +224,10 @@ insert into public.app_settings (key, value)
 values ('role_limits', '{"guest": 15, "free": 100, "paid": 0, "admin": 0}'::jsonb)
 on conflict (key) do nothing;
 
+insert into public.app_settings (key, value)
+values ('visible_categories', '{"categories": []}'::jsonb)
+on conflict (key) do nothing;
+
 insert into storage.buckets (id, name, public)
 values ('word-images', 'word-images', true)
 on conflict (id) do update set public = excluded.public;

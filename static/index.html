@@ -16,7 +16,7 @@
         },
       };
     </script>
-    <link rel="stylesheet" href="styles.css?v=ipa-phonetics" />
+    <link rel="stylesheet" href="styles.css?v=visible-categories" />
   </head>
   <body class="bg-[#fff4df] font-display text-slate-900">
     <div id="toastNotification" class="toast-notification hidden" role="status" aria-live="polite"></div>
@@ -190,10 +190,11 @@
           </div>
 
           <div class="admin-body flex min-h-0 flex-1 flex-col">
-            <nav id="adminTabs" class="admin-tabs grid grid-cols-2 gap-2 border-b-4 border-yellow-100 p-3 sm:grid-cols-4">
+            <nav id="adminTabs" class="admin-tabs grid grid-cols-2 gap-2 border-b-4 border-yellow-100 p-3 sm:grid-cols-5">
               <button class="admin-tab active rounded-2xl px-2 py-3 text-xs font-black active:scale-95" data-admin-tab="voice">Voice</button>
               <button class="admin-tab rounded-2xl px-2 py-3 text-xs font-black active:scale-95" data-admin-tab="words">Words</button>
               <button class="admin-tab rounded-2xl px-2 py-3 text-xs font-black active:scale-95" data-admin-tab="add">Add New</button>
+              <button class="admin-tab rounded-2xl px-2 py-3 text-xs font-black active:scale-95" data-admin-tab="display">Display</button>
               <button class="admin-tab rounded-2xl px-2 py-3 text-xs font-black active:scale-95" data-admin-tab="users">Users</button>
             </nav>
 
@@ -298,6 +299,19 @@
                 <button id="addWordBtn" class="w-full rounded-2xl bg-violet-500 px-3 py-3 text-sm font-black text-white active:scale-95">Add Word</button>
               </section>
 
+              <section id="adminTabDisplay" class="admin-tab-panel hidden space-y-4">
+                <div class="rounded-3xl bg-sky-50 p-4">
+                  <div class="flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                      <p class="mb-1 text-sm font-black uppercase text-sky-800">Visible Categories</p>
+                      <p id="categoryVisibilitySummary" class="text-sm font-extrabold text-slate-500">All categories visible</p>
+                    </div>
+                    <button id="saveCategoryVisibilityBtn" class="rounded-2xl bg-sky-500 px-4 py-3 text-sm font-black text-white active:scale-95">Save Display</button>
+                  </div>
+                  <div id="categoryVisibilityList" class="category-visibility-list mt-3 grid gap-2"></div>
+                </div>
+              </section>
+
               <section id="adminTabUsers" class="admin-tab-panel hidden space-y-4">
                 <div class="rounded-3xl bg-emerald-50 p-4">
                   <p class="mb-3 text-sm font-black uppercase text-emerald-800">Daily View Limits</p>
@@ -333,6 +347,6 @@
     </main>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="supabase-config.js"></script>
-    <script src="app.js?v=ipa-phonetics"></script>
+    <script src="app.js?v=visible-categories"></script>
   </body>
 </html>
