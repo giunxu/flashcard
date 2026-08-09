@@ -92,6 +92,8 @@ const el = {
   prev: document.querySelector("#prevBtn"),
   learnControls: document.querySelector("#learnControls"),
   cardStage: document.querySelector("#cardStage"),
+  settingsToggle: document.querySelector("#settingsToggleBtn"),
+  settingsMenu: document.querySelector("#settingsMenu"),
   statsToggle: document.querySelector("#statsToggleBtn"),
   statsPanel: document.querySelector("#statsPanel"),
   statsLearnedCount: document.querySelector("#statsLearnedCount"),
@@ -913,6 +915,7 @@ function updateAccessUi() {
   };
   el.roleBadge.textContent = labels[state.role] || "Guest";
   el.authToggle.textContent = state.session ? "Account" : "Login";
+  closeSettingsMenu();
   el.passwordResetAuth.classList.toggle("hidden", !state.passwordResetMode);
   el.signedOutAuth.classList.toggle("hidden", state.passwordResetMode || Boolean(state.session));
   el.signedInAuth.classList.toggle("hidden", state.passwordResetMode || !state.session);
@@ -943,6 +946,28 @@ function updateAccessUi() {
     el.accessNote.classList.add("hidden");
     el.accessNote.textContent = "";
   }
+}
+
+function closeSettingsMenu() {
+  if (!el.settingsMenu || !el.settingsToggle) return;
+  el.settingsMenu.classList.add("hidden");
+  el.settingsToggle.setAttribute("aria-expanded", "false");
+}
+
+function bindSettingsMenu() {
+  el.settingsToggle.addEventListener("click", (event) => {
+    event.stopPropagation();
+    const willOpen = el.settingsMenu.classList.contains("hidden");
+    el.authPanel.classList.add("hidden");
+    el.statsPanel.classList.add("hidden");
+    el.donatePanel.classList.add("hidden");
+    el.settingsMenu.classList.toggle("hidden", !willOpen);
+    el.settingsToggle.setAttribute("aria-expanded", String(willOpen));
+  });
+  el.settingsMenu.addEventListener("click", (event) => {
+    event.stopPropagation();
+  });
+  document.addEventListener("click", closeSettingsMenu);
 }
 
 async function refreshProfile() {
@@ -1350,6 +1375,7 @@ function bindAdminTools() {
   el.adminToggle.addEventListener("click", (event) => {
     event.stopPropagation();
     if (!isAdmin()) return;
+    closeSettingsMenu();
     setAdminMode(!state.adminMode);
   });
   el.adminClose.textContent = "Study";
@@ -1677,6 +1703,7 @@ async function handleLogout() {
 function bindAuth() {
   el.authToggle.addEventListener("click", (event) => {
     event.stopPropagation();
+    closeSettingsMenu();
     el.statsPanel.classList.add("hidden");
     el.donatePanel.classList.add("hidden");
     el.authPanel.classList.toggle("hidden");
@@ -1723,6 +1750,7 @@ function bindAuth() {
 function bindStats() {
   el.statsToggle.addEventListener("click", (event) => {
     event.stopPropagation();
+    closeSettingsMenu();
     renderStats();
     el.authPanel.classList.add("hidden");
     el.donatePanel.classList.add("hidden");
@@ -1739,6 +1767,7 @@ function bindStats() {
 function bindDonate() {
   el.donateToggle.addEventListener("click", (event) => {
     event.stopPropagation();
+    closeSettingsMenu();
     el.authPanel.classList.add("hidden");
     el.statsPanel.classList.add("hidden");
     el.donatePanel.classList.toggle("hidden");
@@ -1843,6 +1872,7 @@ function bindEvents() {
   bindAuth();
   bindStats();
   bindDonate();
+  bindSettingsMenu();
   bindAdminTools();
   el.category.addEventListener("change", () => {
     state.category = el.category.value;
