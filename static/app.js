@@ -59,6 +59,7 @@ const state = {
   suppressNextSpeakClick: false,
   lastSpokenAt: 0,
   lastSpokenWord: "",
+  speechToken: 0,
   voices: [],
   speech: {
     rate: 0.65,
@@ -516,6 +517,8 @@ function speak(wordOrItem) {
   if (state.lastSpokenWord === word && now - state.lastSpokenAt < 300) return;
   state.lastSpokenWord = word;
   state.lastSpokenAt = now;
+  state.speechToken += 1;
+  const speechToken = state.speechToken;
 
   refreshVoices();
   window.speechSynthesis.cancel();
@@ -528,13 +531,16 @@ function speak(wordOrItem) {
   const voice = englishVoice();
   if (voice) utterance.voice = voice;
   utterance.onstart = () => {
+    if (speechToken !== state.speechToken) return;
     el.speechHint.textContent = "Speaking...";
   };
   utterance.onend = () => {
+    if (speechToken !== state.speechToken) return;
     el.speechHint.textContent = "Tap card to listen";
   };
   utterance.onerror = () => {
-    el.speechHint.textContent = "Could not play audio. Tap the card and try again.";
+    if (speechToken !== state.speechToken) return;
+    el.speechHint.textContent = "Tap card to listen";
   };
   window.speechSynthesis.speak(utterance);
   markLearned(item);
