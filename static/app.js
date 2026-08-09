@@ -18,6 +18,12 @@ const supabaseClient =
       })
     : null;
 
+const hiddenStudyCategories = new Set(["Common Words"]);
+
+function isVisibleStudyWord(word) {
+  return !hiddenStudyCategories.has(word.category);
+}
+
 function readStoredJson(key, fallback) {
   try {
     return JSON.parse(localStorage.getItem(key) || JSON.stringify(fallback));
@@ -81,8 +87,7 @@ const el = {
   flashCard: document.querySelector("#flashCard"),
   imageFrame: document.querySelector("#imageFrame"),
   wordText: document.querySelector("#wordText"),
-  wordMeaning: document.querySelector("#wordMeaning"),
-  wordCategory: document.querySelector("#wordCategory"),
+  wordPhonetic: document.querySelector("#wordPhonetic"),
   positionText: document.querySelector("#positionText"),
   totalWords: document.querySelector("#totalWords"),
   speakArea: document.querySelector("#speakArea"),
@@ -333,8 +338,7 @@ function recordDailyView(item) {
 function renderDailyQuotaLock() {
   state.quotaLocked = true;
   el.wordText.textContent = "Daily limit reached";
-  el.wordMeaning.textContent = "";
-  el.wordCategory.textContent = "Come back tomorrow";
+  el.wordPhonetic.textContent = "";
   el.positionText.textContent = dailyViewsUsed();
   el.totalWords.textContent = dailyViewLimit();
   el.imageFrame.innerHTML = `<div class="grid h-full w-full place-items-center bg-yellow-100 text-7xl">🔒</div>`;
@@ -539,6 +543,11 @@ function slugify(value) {
     .replace(/^-+|-+$/g, "");
 }
 
+function phoneticText(item) {
+  const value = item?.phonetic || item?.word || "";
+  return value ? `/${String(value).trim()}/` : "";
+}
+
 function fromSupabaseRow(row) {
   return {
     id: row.id,
@@ -546,6 +555,7 @@ function fromSupabaseRow(row) {
     category: row.category,
     emoji: row.emoji || "⭐",
     meaning: row.meaning || "",
+    phonetic: "",
     color: row.color || "#ffd166",
     imageUrl: row.image_url || "",
     sortOrder: row.sort_order || 0,
@@ -607,8 +617,7 @@ function selectWordByIndex(index, shouldSpeak = true, countView = shouldSpeak) {
 
   state.currentIndex = nextIndex;
   el.wordText.textContent = item.word;
-  el.wordMeaning.textContent = item.meaning;
-  el.wordCategory.textContent = item.category;
+  el.wordPhonetic.textContent = phoneticText(item);
   el.positionText.textContent = state.currentIndex + 1;
   el.totalWords.textContent = state.filtered.length;
   el.imageFrame.innerHTML = imageMarkup(item);
@@ -650,7 +659,7 @@ function renderCategories() {
     el.editCategory.innerHTML = categoryOptions;
   }
   if (el.newCategorySelect) {
-    el.newCategorySelect.innerHTML = categoryOptions || `<option value="Common Words">Common Words</option>`;
+    el.newCategorySelect.innerHTML = categoryOptions || `<option value="Animals">Animals</option>`;
   }
 }
 
@@ -882,7 +891,7 @@ function applyFilter(preferredWordId = "") {
 
   if (!state.filtered.length) {
     el.wordText.textContent = "No words";
-    el.wordMeaning.textContent = "No matching words";
+    el.wordPhonetic.textContent = "";
     el.imageFrame.innerHTML = `<div class="grid h-full w-full place-items-center text-7xl">?</div>`;
     el.positionText.textContent = "0";
     el.totalWords.textContent = "0";
@@ -1005,7 +1014,16 @@ async function loadWordsFromSupabase() {
 
 function mergeWordsById(baseWords, overrideWords) {
   const overrides = new Map(overrideWords.map((item) => [item.id, item]));
-  const merged = baseWords.map((item) => ({ ...item, ...(overrides.get(item.id) || {}) }));
+  const merged = baseWords.map((item) => {
+    const override = overrides.get(item.id);
+    if (!override) return item;
+    return {
+      ...item,
+      ...override,
+      meaning: item.meaning || override.meaning || "",
+      phonetic: item.phonetic || override.phonetic || "",
+    };
+  });
   const baseIds = new Set(baseWords.map((item) => item.id));
   overrideWords.forEach((item) => {
     if (!baseIds.has(item.id)) merged.push(item);
@@ -1014,7 +1032,7 @@ function mergeWordsById(baseWords, overrideWords) {
 }
 
 async function loadWordsFromStaticJson() {
-  const response = await fetch("data/words.json");
+  const response = await fetch("data/words.json?v=ipa-phonetics");
   if (!response.ok) throw new Error("Cannot load static words.json");
   const data = await response.json();
   return data.words;
@@ -1028,25 +1046,26 @@ async function loadWordsFromLocalApi() {
 }
 
 async function loadWords() {
+  let staticWords = [];
+  try {
+    staticWords = await loadWordsFromStaticJson();
+  } catch (error) {
+    staticWords = [];
+  }
+
   if (supabaseClient) {
     try {
       const supabaseWords = await loadWordsFromSupabase();
-      const staticWords = await loadWordsFromStaticJson();
       if (supabaseWords.length < staticWords.length) {
         console.warn("Supabase returned a limited word list. Merging with local static words until RLS is migrated.");
-        return mergeWordsById(staticWords, supabaseWords);
       }
-      return supabaseWords;
+      return staticWords.length ? mergeWordsById(staticWords, supabaseWords) : supabaseWords;
     } catch (error) {
       console.warn("Supabase load failed, falling back to local data.", error);
     }
   }
 
-  try {
-    return await loadWordsFromStaticJson();
-  } catch (error) {
-    return loadWordsFromLocalApi();
-  }
+  return staticWords.length ? staticWords : loadWordsFromLocalApi();
 }
 
 function readLocalSpeechSettings() {
@@ -1129,7 +1148,7 @@ async function loadRoleLimits() {
 }
 
 async function reloadWords() {
-  const words = await loadWords();
+  const words = (await loadWords()).filter(isVisibleStudyWord);
   state.words = words.map((word) => {
     const localImage = localStorage.getItem(`image:${word.id}`);
     return localImage && !supabaseClient ? { ...word, imageUrl: localImage } : word;
@@ -1516,7 +1535,7 @@ function bindAdminTools() {
     runAdminAction("Adding word...", async () => {
       const word = el.newWord.value.trim().toLowerCase();
       if (!word) throw new Error("Enter a new word first.");
-      const category = el.newCategory.value.trim() || el.newCategorySelect.value || "Common Words";
+      const category = el.newCategory.value.trim() || el.newCategorySelect.value || "Animals";
       const id = `${slugify(category)}-${slugify(word)}`;
       const item = {
         id,
@@ -1818,7 +1837,7 @@ function showAuthCallbackMessage() {
 
 function bindSwipe() {
   el.flashCard.addEventListener("pointerdown", (event) => {
-    if (event.target.closest("#prevBtn, #nextBtn, #randomBtn")) return;
+    if (event.target.closest("#prevBtn, #nextBtn, #randomBtn, #categorySelect")) return;
     state.isDragging = true;
     state.dragStartedOnSpeak = Boolean(event.target.closest("#speakArea"));
     state.dragStartX = event.clientX;

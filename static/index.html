@@ -16,7 +16,7 @@
         },
       };
     </script>
-    <link rel="stylesheet" href="styles.css?v=no-study-search" />
+    <link rel="stylesheet" href="styles.css?v=ipa-phonetics" />
   </head>
   <body class="bg-[#fff4df] font-display text-slate-900">
     <div id="toastNotification" class="toast-notification hidden" role="status" aria-live="polite"></div>
@@ -125,12 +125,7 @@
 
       <section id="accessNote" class="access-note rounded-2xl bg-yellow-100 px-3 text-center font-black text-yellow-900"></section>
 
-      <section id="learnControls" class="controls-grid grid gap-2">
-        <label class="block">
-          <span class="control-label font-black uppercase text-slate-500">Category</span>
-          <select id="categorySelect" class="control-input mt-1 w-full rounded-2xl border-white bg-white px-3 font-extrabold shadow-md outline-none focus:border-sky-300"></select>
-        </label>
-      </section>
+      <section id="learnControls" class="hidden"></section>
 
       <section id="cardStage" class="card-stage relative flex flex-1 items-center justify-center">
         <article id="flashCard" class="flash-card relative flex w-full touch-pan-y select-none flex-col overflow-hidden rounded-[30px] border-white bg-white shadow-2xl shadow-orange-100">
@@ -138,7 +133,11 @@
           <div class="absolute -bottom-20 -left-16 h-52 w-52 rounded-full bg-sky-200"></div>
 
           <div class="relative flex items-center justify-between gap-2">
-            <span id="wordCategory" class="rounded-full bg-pink-100 px-3 py-2 text-xs font-black uppercase text-pink-700">Common Words</span>
+            <label class="category-pill rounded-full bg-pink-100 text-pink-700">
+              <select id="categorySelect" class="category-pill-select font-black uppercase outline-none">
+                <option>Animals</option>
+              </select>
+            </label>
             <div class="rounded-full bg-white px-3 py-2 text-sm font-black shadow-md">
               <span id="positionText">1</span>/<span id="totalWords">0</span>
             </div>
@@ -147,7 +146,7 @@
           <button id="speakArea" class="speak-area relative flex flex-1 flex-col items-center justify-center rounded-[24px] bg-[#f7fbff] active:scale-[0.99]" aria-label="Tap to hear pronunciation">
             <div id="imageFrame" class="image-frame grid aspect-square w-full place-items-center overflow-hidden rounded-[24px] border-white text-8xl shadow-xl"></div>
             <h2 id="wordText" class="word-title max-w-full break-words text-center font-black leading-none">Loading...</h2>
-            <p id="wordMeaning" class="meaning-text hidden text-center font-extrabold text-slate-500" aria-hidden="true"></p>
+            <p id="wordPhonetic" class="phonetic-text text-center font-black text-sky-700"></p>
             <p id="speechHint" class="speech-hint rounded-full bg-emerald-100 font-black text-emerald-800">Tap card to listen</p>
           </button>
 
@@ -334,6 +333,6 @@
     </main>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="supabase-config.js"></script>
-    <script src="app.js?v=no-study-search"></script>
+    <script src="app.js?v=ipa-phonetics"></script>
   </body>
 </html>

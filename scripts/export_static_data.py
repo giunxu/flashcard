@@ -72,7 +72,10 @@ def main():
             + ")"
         )
 
-    seed_sql = """insert into public.words
+    seed_sql = """delete from public.words
+where category = 'Common Words';
+
+insert into public.words
   (id, word, category, emoji, meaning, color, image_url, sort_order)
 values
 """

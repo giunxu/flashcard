@@ -1,4 +1,18 @@
 import hashlib
+import json
+from pathlib import Path
+
+
+WORD_PHONETICS_FILE = Path(__file__).with_name("word_phonetics.json")
+
+
+def _load_word_phonetics():
+    if not WORD_PHONETICS_FILE.exists():
+        return {}
+    return json.loads(WORD_PHONETICS_FILE.read_text(encoding="utf-8"))
+
+
+WORD_PHONETICS = _load_word_phonetics()
 
 
 CATEGORY_EMOJI = {
@@ -23,7 +37,6 @@ CATEGORY_EMOJI = {
     "Technology": "💻",
     "Music": "🎵",
     "Sports": "⚽",
-    "Common Words": "⭐",
     "Adjectives": "🌈",
     "Opposites": "↔️",
 }
@@ -73,7 +86,6 @@ VI_HINTS = {
     "Technology": "công nghệ",
     "Music": "âm nhạc",
     "Sports": "thể thao",
-    "Common Words": "từ thông dụng",
     "Adjectives": "tính từ",
     "Opposites": "cặp đối nghĩa",
 }
@@ -211,16 +223,6 @@ WORDS_BY_CATEGORY = {
         true false day night hello goodbye start finish begin end first last here there this that these those
         before after with without
     """,
-    "Common Words": """
-        a an the I you he she it we they me him her us them my your his its our their mine yours ours
-        who what where when why how is am are was were be been being have has had do does did can could
-        will would shall should may might must and or but because so if then than for from to of at by with
-        about above across after against along among around as before behind below beside between into like
-        near off on onto over through under until upon within without very too also only just again still
-        even almost enough really maybe please thank sorry hello goodbye yes no not no one something anything
-        nothing everything everyone someone anyone nobody here there away back together apart place thing way
-        life name number part point side end kind hand eye work world day night child man woman people
-    """,
 }
 
 
@@ -244,7 +246,8 @@ def _entry(word, category):
         "word": clean,
         "category": category,
         "emoji": WORD_EMOJI.get(clean, CATEGORY_EMOJI.get(category, "⭐")),
-        "meaning": VI_HINTS.get(category, "từ tiếng Anh"),
+        "meaning": "",
+        "phonetic": WORD_PHONETICS.get(clean, clean),
         "color": _color_for(clean),
     }
 
@@ -258,26 +261,5 @@ def build_words():
             if word not in seen:
                 seen.add(word)
                 items.append(_entry(word, category))
-
-    adjective_words = _split_words(WORDS_BY_CATEGORY["Adjectives"])
-    noun_sources = (
-        _split_words(WORDS_BY_CATEGORY["Animals"])
-        + _split_words(WORDS_BY_CATEGORY["Food"])
-        + _split_words(WORDS_BY_CATEGORY["Home"])
-        + _split_words(WORDS_BY_CATEGORY["Nature"])
-        + _split_words(WORDS_BY_CATEGORY["Toys"])
-    )
-
-    for adjective in adjective_words:
-        for noun in noun_sources[:40]:
-            phrase = f"{adjective} {noun}"
-            if phrase not in seen:
-                seen.add(phrase)
-                item = _entry(phrase, "Common Words")
-                item["emoji"] = WORD_EMOJI.get(noun, "⭐")
-                item["meaning"] = "cụm từ thông dụng"
-                items.append(item)
-            if len(items) >= 1080:
-                return items
 
     return items

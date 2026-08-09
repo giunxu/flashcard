@@ -62,7 +62,7 @@ App đã có thể chạy như static site. Dữ liệu chung cho mọi thiết 
 
 1. Tạo project trên Supabase.
 2. Vào SQL Editor, chạy file `supabase/schema.sql`.
-3. Chạy tiếp file `supabase/seed_words.sql` để nhập 1135 từ.
+3. Chạy tiếp file `supabase/seed_words.sql` để nhập 1016 từ.
 4. Vào Project Settings > API, lấy `Project URL` và `anon public key`.
 5. Sửa `static/supabase-config.js`:
 

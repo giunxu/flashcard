@@ -38,7 +38,6 @@ CATEGORY_HINTS = {
     "Technology": "technology",
     "Music": "music",
     "Sports": "sport",
-    "Common Words": "children illustration",
     "Adjectives": "illustration",
     "Opposites": "symbol",
 }

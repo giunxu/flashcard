@@ -220,9 +220,48 @@ select {
   font-size: 0.95rem;
 }
 
+.category-pill {
+  display: inline-grid;
+  min-width: 0;
+  max-width: min(62vw, 280px);
+  box-shadow: 0 8px 18px rgba(236, 72, 153, 0.1);
+  transition:
+    filter 160ms ease,
+    transform 160ms ease,
+    box-shadow 160ms ease;
+}
+
+.category-pill:hover {
+  filter: brightness(1.04);
+  transform: translateY(-1px);
+  box-shadow: 0 12px 22px rgba(236, 72, 153, 0.16);
+}
+
+.category-pill-select {
+  min-width: 8.4rem;
+  max-width: inherit;
+  cursor: pointer;
+  appearance: none;
+  border: 0;
+  border-radius: 999px;
+  background:
+    linear-gradient(45deg, transparent 50%, currentColor 50%) calc(100% - 14px) 50% / 5px 5px no-repeat,
+    linear-gradient(135deg, currentColor 50%, transparent 50%) calc(100% - 9px) 50% / 5px 5px no-repeat,
+    transparent;
+  padding: 0.5rem 1.6rem 0.5rem 0.85rem;
+  color: inherit;
+  font-size: 0.76rem;
+  line-height: 1;
+  text-overflow: ellipsis;
+}
+
+.category-pill-select:focus-visible {
+  box-shadow: 0 0 0 4px rgba(14, 165, 233, 0.25);
+}
+
 .card-stage {
   min-height: 0;
-  margin-top: 10px;
+  margin-top: 6px;
 }
 
 .admin-screen {
@@ -396,8 +435,8 @@ select {
 }
 
 .image-frame {
-  max-width: min(78vw, 416px);
-  max-height: min(47dvh, 416px);
+  max-width: min(94vw, 500px);
+  max-height: min(56dvh, 500px);
   border-width: 4px;
 }
 
@@ -409,18 +448,14 @@ select {
 }
 
 .word-title {
-  margin-top: 12px;
+  margin-top: 10px;
   font-size: clamp(2.25rem, 12vw, 4.4rem);
 }
 
-.meaning-text {
-  margin-top: 6px;
-  font-size: clamp(0.88rem, 3.6vw, 1.1rem);
-  line-height: 1.15;
-}
-
-.meaning-text.hidden {
-  display: none;
+.phonetic-text {
+  margin-top: 5px;
+  font-size: clamp(1rem, 4vw, 1.35rem);
+  line-height: 1.05;
 }
 
 .speech-hint {
@@ -554,20 +589,20 @@ select {
   }
 
   .image-frame {
-    max-width: min(73vw, 320px);
-    max-height: min(40dvh, 320px);
+    max-width: min(88vw, 384px);
+    max-height: min(48dvh, 384px);
     border-width: 3px;
     border-radius: 20px;
   }
 
   .word-title {
-    margin-top: 8px;
+    margin-top: 7px;
     font-size: clamp(1.95rem, 10vw, 3.1rem);
   }
 
-  .meaning-text {
+  .phonetic-text {
     margin-top: 4px;
-    font-size: 0.82rem;
+    font-size: 0.92rem;
   }
 
   .speech-hint {
@@ -606,8 +641,8 @@ select {
   }
 
   .image-frame {
-    max-width: min(65vw, 247px);
-    max-height: min(35dvh, 247px);
+    max-width: min(78vw, 296px);
+    max-height: min(42dvh, 296px);
   }
 
   .speech-hint {
