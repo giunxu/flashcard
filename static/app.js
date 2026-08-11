@@ -19,6 +19,7 @@ const supabaseClient =
     : null;
 
 const hiddenStudyCategories = new Set(["Common Words"]);
+const donateCardType = "guest-donate";
 
 function isVisibleStudyWord(word) {
   return !hiddenStudyCategories.has(word.category);
@@ -73,6 +74,10 @@ const state = {
     admin: 0,
   },
   visibleCategories: [],
+  guestDonateCard: {
+    enabled: true,
+    interval: 2,
+  },
   users: [],
   editWordId: "",
   adminTab: "voice",
@@ -198,6 +203,10 @@ const el = {
   categoryVisibilityList: document.querySelector("#categoryVisibilityList"),
   categoryVisibilitySummary: document.querySelector("#categoryVisibilitySummary"),
   saveCategoryVisibility: document.querySelector("#saveCategoryVisibilityBtn"),
+  guestDonateEnabled: document.querySelector("#guestDonateEnabledInput"),
+  guestDonateInterval: document.querySelector("#guestDonateIntervalInput"),
+  guestDonateSummary: document.querySelector("#guestDonateSummary"),
+  saveGuestDonate: document.querySelector("#saveGuestDonateBtn"),
   toast: document.querySelector("#toastNotification"),
 };
 
@@ -324,6 +333,7 @@ function isDailyQuotaLocked() {
 }
 
 function recordDailyView(item) {
+  if (isDonateCard(item)) return true;
   const limit = dailyViewLimit();
   const day = todayKey();
   state.quotaLocked = false;
@@ -364,7 +374,7 @@ function readStudyProgress() {
 }
 
 function saveStudyProgress(item) {
-  if (!item?.id) return;
+  if (!item?.id || isDonateCard(item)) return;
   localStorage.setItem(
     scopedStorageKey("studyProgress"),
     JSON.stringify({
@@ -445,7 +455,7 @@ function renderStats() {
 }
 
 function markLearned(item) {
-  if (!item) return;
+  if (!item || isDonateCard(item)) return;
   if (state.learned.has(item.id) || state.learned.has(item.word)) return;
   state.learned.add(item.id || item.word);
   saveLearned();
@@ -591,7 +601,55 @@ function toSupabasePayload(item) {
   };
 }
 
+function isDonateCard(item) {
+  return item?.type === donateCardType;
+}
+
+function guestDonateInterval() {
+  const interval = Number(state.guestDonateCard.interval);
+  return Number.isFinite(interval) ? Math.min(50, Math.max(1, Math.floor(interval))) : 2;
+}
+
+function guestDonateCard(slot) {
+  return {
+    id: `__guest_donate_${slot}`,
+    type: donateCardType,
+    word: "donate",
+    category: "Donate",
+    emoji: "",
+    meaning: "",
+    phonetic: "",
+    color: "#d1fae5",
+    imageUrl: "assets/donate-qr-code.png",
+    sortOrder: 0,
+  };
+}
+
+function shouldInsertGuestDonateCards() {
+  return state.role === "guest" && Boolean(state.guestDonateCard.enabled);
+}
+
+function withGuestDonateCards(words) {
+  if (!shouldInsertGuestDonateCards()) return words;
+  const interval = guestDonateInterval();
+  const output = [];
+  words.forEach((word, index) => {
+    output.push(word);
+    if ((index + 1) % interval === 0) {
+      output.push(guestDonateCard(index + 1));
+    }
+  });
+  return output;
+}
+
 function imageMarkup(item) {
+  if (isDonateCard(item)) {
+    return `
+      <div class="donate-flashcard h-full w-full bg-emerald-50">
+        <img class="donate-flashcard-qr" src="assets/donate-qr-code.png" alt="Donation QR code" />
+      </div>
+    `;
+  }
   if (item.imageUrl) {
     return `<img class="h-full w-full object-cover" src="${item.imageUrl}" alt="${item.word}" />`;
   }
@@ -599,12 +657,16 @@ function imageMarkup(item) {
 }
 
 function updateGoogleLink(item) {
+  if (isDonateCard(item)) {
+    el.googleImage.href = "#";
+    return;
+  }
   const query = encodeURIComponent(`${item.word} picture for kids`);
   el.googleImage.href = `https://www.google.com/search?tbm=isch&q=${query}`;
 }
 
 function fillAdminFields(item) {
-  if (!item) return;
+  if (!item || isDonateCard(item)) return;
   state.editWordId = item.id;
   el.editWord.value = item.word;
   el.editCategory.value = item.category;
@@ -660,6 +722,27 @@ function sortedCategories(words) {
 function applyCategoryVisibility(value = {}) {
   const categories = Array.isArray(value.categories) ? value.categories : [];
   state.visibleCategories = [...new Set(categories.map(String).filter(Boolean))];
+}
+
+function applyGuestDonateCardSettings(value = {}) {
+  state.guestDonateCard = {
+    enabled: value.enabled !== false,
+    interval: normalizeRoleLimit(value.interval, 2) || 2,
+  };
+  state.guestDonateCard.interval = guestDonateInterval();
+  if (el.guestDonateEnabled) el.guestDonateEnabled.checked = state.guestDonateCard.enabled;
+  if (el.guestDonateInterval) el.guestDonateInterval.value = state.guestDonateCard.interval;
+  updateGuestDonateSummary();
+}
+
+function updateGuestDonateSummary() {
+  if (!el.guestDonateSummary) return;
+  if (!el.guestDonateEnabled?.checked) {
+    el.guestDonateSummary.textContent = "Hidden from Guest trial";
+    return;
+  }
+  const interval = normalizeRoleLimit(el.guestDonateInterval?.value, state.guestDonateCard.interval) || 2;
+  el.guestDonateSummary.textContent = `Shown once every ${Math.min(50, Math.max(1, interval))} cards`;
 }
 
 function categoryVisibilitySet() {
@@ -962,10 +1045,11 @@ function renderAdminWordList() {
 }
 
 function applyFilter(preferredWordId = "") {
-  state.filtered = state.words.filter((item) => {
+  const wordCards = state.words.filter((item) => {
     const matchesCategory = state.category === "All" || item.category === state.category;
     return isCategoryVisible(item.category) && matchesCategory;
   });
+  state.filtered = withGuestDonateCards(wordCards);
 
   if (!state.filtered.length) {
     el.wordText.textContent = "No words";
@@ -1248,6 +1332,29 @@ async function loadCategoryVisibility() {
   }
 }
 
+async function loadGuestDonateCardSettings() {
+  if (supabaseClient) {
+    try {
+      const { data, error } = await supabaseClient
+        .from("app_settings")
+        .select("value")
+        .eq("key", "guest_donate_card")
+        .maybeSingle();
+      if (error) throw error;
+      applyGuestDonateCardSettings(data?.value || {});
+      return;
+    } catch (error) {
+      console.warn("Guest donate card settings load failed, using local defaults.", error);
+    }
+  }
+
+  try {
+    applyGuestDonateCardSettings(JSON.parse(localStorage.getItem("guestDonateCard") || "{}"));
+  } catch {
+    applyGuestDonateCardSettings();
+  }
+}
+
 async function reloadWords() {
   const words = (await loadWords()).filter(isVisibleStudyWord);
   state.words = words.map((word) => {
@@ -1512,6 +1619,36 @@ async function saveCategoryVisibility() {
   showToast("Visible categories saved.", "success");
 }
 
+async function saveGuestDonateCardSettings() {
+  if (!isAdmin()) return;
+  const settings = {
+    enabled: Boolean(el.guestDonateEnabled.checked),
+    interval: normalizeRoleLimit(el.guestDonateInterval.value, 2) || 2,
+  };
+  settings.interval = Math.min(50, Math.max(1, settings.interval));
+  applyGuestDonateCardSettings(settings);
+  showToast("Saving guest donate card...", "info");
+
+  if (supabaseClient) {
+    const { error } = await supabaseClient.from("app_settings").upsert({
+      key: "guest_donate_card",
+      value: state.guestDonateCard,
+      updated_at: new Date().toISOString(),
+    });
+    if (error) {
+      showToast(error.message || "Could not save guest donate card.", "error");
+      return;
+    }
+  } else {
+    localStorage.setItem("guestDonateCard", JSON.stringify(state.guestDonateCard));
+  }
+
+  const current = currentWord();
+  applyFilter(current?.id || "");
+  renderStats();
+  showToast("Guest donate card saved.", "success");
+}
+
 async function saveEditedImage() {
   if (state.editCrop) {
     const cropped = await cropToSquareFile("edit");
@@ -1567,6 +1704,9 @@ function bindAdminTools() {
     updateCategoryVisibilitySummary(checked);
   });
   el.saveCategoryVisibility.addEventListener("click", saveCategoryVisibility);
+  el.guestDonateEnabled.addEventListener("change", updateGuestDonateSummary);
+  el.guestDonateInterval.addEventListener("input", updateGuestDonateSummary);
+  el.saveGuestDonate.addEventListener("click", saveGuestDonateCardSettings);
   el.cancelEditCrop.addEventListener("click", () => {
     clearCrop("edit");
     showToast("Image crop cancelled.", "info");
@@ -1923,26 +2063,38 @@ function bindStats() {
   });
 }
 
+function openDonatePanel() {
+  closeSettingsMenu();
+  el.authPanel.classList.add("hidden");
+  el.statsPanel.classList.add("hidden");
+  el.donatePanel.classList.remove("hidden");
+}
+
+function closeDonatePanel() {
+  el.donatePanel.classList.add("hidden");
+}
+
 function bindDonate() {
   el.donateToggle.addEventListener("click", (event) => {
     event.stopPropagation();
-    closeSettingsMenu();
-    el.authPanel.classList.add("hidden");
-    el.statsPanel.classList.add("hidden");
-    el.donatePanel.classList.toggle("hidden");
+    if (el.donatePanel.classList.contains("hidden")) {
+      openDonatePanel();
+    } else {
+      closeDonatePanel();
+    }
   });
   el.donateClose.addEventListener("click", (event) => {
     event.stopPropagation();
-    el.donatePanel.classList.add("hidden");
+    closeDonatePanel();
   });
   el.donateCard.addEventListener("click", (event) => {
     event.stopPropagation();
   });
   el.donatePanel.addEventListener("click", () => {
-    el.donatePanel.classList.add("hidden");
+    closeDonatePanel();
   });
   document.addEventListener("click", () => {
-    el.donatePanel.classList.add("hidden");
+    closeDonatePanel();
   });
 }
 
@@ -2042,7 +2194,8 @@ function bindEvents() {
       state.suppressNextSpeakClick = false;
       return;
     }
-    speak(currentWord());
+    const item = currentWord();
+    speak(item);
   });
   el.next.addEventListener("click", () => selectWordByIndex(state.currentIndex + 1));
   el.prev.addEventListener("click", () => selectWordByIndex(state.currentIndex - 1));
@@ -2060,6 +2213,7 @@ async function init() {
   showAuthCallbackMessage();
   await loadRoleLimits();
   await loadCategoryVisibility();
+  await loadGuestDonateCardSettings();
   await refreshProfile();
   loadStudyDataForViewer();
   await loadSpeechSettings();

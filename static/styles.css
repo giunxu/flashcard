@@ -168,6 +168,17 @@ select {
   height: auto;
 }
 
+.donate-flashcard {
+  overflow: hidden;
+}
+
+.donate-flashcard-qr {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
 .stats-pie {
   position: relative;
   aspect-ratio: 1 / 1;

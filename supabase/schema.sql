@@ -144,18 +144,10 @@ drop policy if exists "words_admin_insert" on public.words;
 drop policy if exists "words_admin_update" on public.words;
 drop policy if exists "words_admin_delete" on public.words;
 
-create policy "words_guest_read_15"
+create policy "words_public_read"
 on public.words for select
-to anon
-using (sort_order < private.role_word_limit('guest'));
-
-create policy "words_user_read_by_role"
-on public.words for select
-to authenticated
-using (
-  private.current_user_role() = 'admin'
-  or sort_order < private.role_word_limit(private.current_user_role())
-);
+to anon, authenticated
+using (true);
 
 create policy "words_admin_insert"
 on public.words for insert
@@ -226,6 +218,10 @@ on conflict (key) do nothing;
 
 insert into public.app_settings (key, value)
 values ('visible_categories', '{"categories": []}'::jsonb)
+on conflict (key) do nothing;
+
+insert into public.app_settings (key, value)
+values ('guest_donate_card', '{"enabled": true, "interval": 2}'::jsonb)
 on conflict (key) do nothing;
 
 insert into storage.buckets (id, name, public)
